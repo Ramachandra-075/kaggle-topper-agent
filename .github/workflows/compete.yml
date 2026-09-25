@@ -2,6 +2,13 @@ name: Kaggle Autonomous Competition Cycle
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "kaggle_agent/**"
+      - "config/**"
+      - "pyproject.toml"
+      - ".github/workflows/compete.yml"
   schedule:
     - cron: "41 */12 * * *"
 
