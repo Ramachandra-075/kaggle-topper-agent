@@ -1,0 +1,38 @@
+competition:
+  max_teams: 150
+  min_teams: 1
+  min_days_left: 3
+  max_days_left: 90
+  target_days_left: 28
+  categories:
+    - playground
+    - featured
+    - research
+    - gettingStarted
+  exclude_refs: []
+
+safety:
+  require_rules_check: true
+  allow_auto_submit: false
+  approved_competitions: []
+  max_submissions_per_run: 1
+  min_cv_improvement: 0.0001
+  submission_wait_seconds: 1200
+
+training:
+  folds: 5
+  random_state: 42
+  prediction_mode: auto
+  models:
+    - histgb
+    - extratrees
+    - catboost
+    - lightgbm
+    - xgboost
+  ensemble_top_k: 3
+  max_rows: 400000
+
+paths:
+  workspace: workspace
+  state: state
+  reports: reports
