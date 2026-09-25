@@ -19,11 +19,87 @@ class TrainResult:
     cv_score:float; submission_path:Path; model_path:Path; target:str; features:list[str]
     params:dict; validation_predictions:np.ndarray; test_predictions:np.ndarray
 
-def _find(data,names):
-    files={p.name.lower():p for p in Path(data).rglob("*.csv")}
-    for n in names:
-        if n.lower() in files:return files[n.lower()]
-    return None
+def _table_files(data):
+    root = Path(data)
+    return sorted([*root.rglob("*.csv"), *root.rglob("*.parquet")])
+
+def _read_table(path, nrows=None):
+    path = Path(path)
+    if path.suffix.lower() == ".parquet":
+        df = pd.read_parquet(path)
+        return df if nrows is None else df.head(nrows)
+    return pd.read_csv(path, nrows=nrows)
+
+def _columns(path):
+    return list(_read_table(path, nrows=5).columns)
+
+def _discover_dataset_files(data):
+    files = _table_files(data)
+    if len(files) < 3:
+        raise FileNotFoundError(
+            f"Need at least 3 table files (train/test/submission); found {[p.name for p in files]}"
+        )
+
+    def name_score(path, words):
+        name = path.stem.lower().replace("-", "_")
+        return sum(3 if name == w else 1 for w in words if w in name)
+
+    sample_words = ("sample_submission", "sample", "submission", "submit")
+    train_words = ("train", "training")
+    test_words = ("test", "testing")
+
+    sample_ranked = sorted(files, key=lambda p: name_score(p, sample_words), reverse=True)
+    sample = sample_ranked[0] if name_score(sample_ranked[0], sample_words) > 0 else None
+
+    remaining = [p for p in files if p != sample]
+    train_ranked = sorted(remaining, key=lambda p: name_score(p, train_words), reverse=True)
+    test_ranked = sorted(remaining, key=lambda p: name_score(p, test_words), reverse=True)
+    train = train_ranked[0] if train_ranked and name_score(train_ranked[0], train_words) > 0 else None
+    test = test_ranked[0] if test_ranked and name_score(test_ranked[0], test_words) > 0 else None
+
+    # Fallback: infer train/test from schema. In a standard Kaggle tabular
+    # competition train has exactly one extra target column relative to test.
+    if train is None or test is None or train == test:
+        schemas = {p: set(_columns(p)) for p in remaining}
+        pairs = []
+        for a in remaining:
+            for b in remaining:
+                if a == b:
+                    continue
+                extra = schemas[a] - schemas[b]
+                missing = schemas[b] - schemas[a]
+                if len(extra) == 1 and len(missing) == 0:
+                    score = name_score(a, train_words) + name_score(b, test_words)
+                    pairs.append((score, a, b))
+        if pairs:
+            _, train, test = max(pairs, key=lambda x: x[0])
+
+    if train is None or test is None:
+        raise FileNotFoundError(
+            "Could not infer train/test files. Downloaded tables: "
+            + ", ".join(p.name for p in files)
+        )
+
+    # If the sample submission did not have a recognizable filename, identify
+    # the remaining file whose columns are mostly ID + target-like outputs.
+    if sample is None or sample in {train, test}:
+        leftovers = [p for p in files if p not in {train, test}]
+        if leftovers:
+            test_cols = set(_columns(test))
+            def sample_likelihood(p):
+                cols = set(_columns(p))
+                # Reward files that share identifiers with test but also contain
+                # one or more columns not present in test.
+                return (len(cols & test_cols), len(cols - test_cols), -len(cols))
+            sample = max(leftovers, key=sample_likelihood)
+
+    if sample is None:
+        raise FileNotFoundError(
+            "Could not infer sample submission file. Downloaded tables: "
+            + ", ".join(p.name for p in files)
+        )
+
+    return train, test, sample
 def _target(train,test):
     c=[x for x in train.columns if x not in test.columns]
     if len(c)!=1: raise ValueError(f"Need exactly one target; found {c}")
@@ -90,9 +166,9 @@ def _score(task,y,pred,nc,metric=None,labels=None):
     return (("f1",True,float(f1_score(y,hard,average="macro"))) if m=="f1" else ("accuracy",True,float(accuracy_score(y,hard))))
 def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,prediction_mode="auto",max_rows=400000,metric_override=None,variant_index=0):
     data=Path(data_dir); out=Path(out_dir); out.mkdir(parents=True,exist_ok=True)
-    tp=_find(data,["train.csv"]); sp=_find(data,["test.csv"]); pp=_find(data,["sample_submission.csv","sampleSubmission.csv"])
-    if not(tp and sp and pp): raise FileNotFoundError("Need train.csv, test.csv, sample_submission.csv")
-    train=pd.read_csv(tp); test=pd.read_csv(sp); sample=pd.read_csv(pp)
+    tp, sp, pp = _discover_dataset_files(data)
+    print(f"dataset files: train={tp.name} test={sp.name} submission={pp.name}")
+    train=_read_table(tp); test=_read_table(sp); sample=_read_table(pp)
     if len(train)>max_rows: train=train.sample(max_rows,random_state=random_state).reset_index(drop=True)
     target=_target(train,test); features=[c for c in test.columns if c in train.columns]
     X=train[features].copy(); y=train[target].copy(); Xt=test[features].copy(); task=_task(y)
@@ -141,7 +217,8 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
     if len(same)<2:return None
     ranked=sorted(same,key=lambda r:r.cv_score,reverse=first.higher_is_better)[:top_k]
     val=np.mean([r.validation_predictions for r in ranked],axis=0); testp=np.mean([r.test_predictions for r in ranked],axis=0)
-    data=Path(data_dir); train=pd.read_csv(_find(data,["train.csv"])); test=pd.read_csv(_find(data,["test.csv"])); sample=pd.read_csv(_find(data,["sample_submission.csv","sampleSubmission.csv"]))
+    data=Path(data_dir); tp, sp, pp = _discover_dataset_files(data)
+    train=_read_table(tp); test=_read_table(sp); sample=_read_table(pp)
     target=_target(train,test); y=train[target]; nc=int(y.nunique()) if first.task=="classification" else 0; labels=np.unique(y.dropna()) if first.task=="classification" else None
     metric,higher,cv=_score(first.task,y,val,nc,metric_override,labels)
     out=Path(out_dir); out.mkdir(parents=True,exist_ok=True); targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
