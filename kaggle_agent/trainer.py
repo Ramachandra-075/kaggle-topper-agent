@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score, f1_score, log_loss, mean_absolute_er
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
+from .feature_engineering import engineer_features
 
 @dataclass
 class TrainResult:
@@ -95,6 +96,11 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
     if len(train)>max_rows: train=train.sample(max_rows,random_state=random_state).reset_index(drop=True)
     target=_target(train,test); features=[c for c in test.columns if c in train.columns]
     X=train[features].copy(); y=train[target].copy(); Xt=test[features].copy(); task=_task(y)
+    combined = pd.concat([X, Xt], axis=0, ignore_index=True)
+    combined = engineer_features(combined)
+    X = combined.iloc[:len(X)].reset_index(drop=True)
+    Xt = combined.iloc[len(X):].reset_index(drop=True)
+    features = list(X.columns)
     nc=int(y.nunique()) if task=="classification" else 0; labels=np.unique(y.dropna()) if task=="classification" else None
     prep=_prep(X,features); est,params=_model(model_name,task,random_state,variant_index)
     params=dict(params,variant_index=variant_index%5)
