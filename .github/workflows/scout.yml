@@ -1,0 +1,31 @@
+name: Kaggle Competition Scout
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 2 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -e .
+      - run: kaggle-agent doctor
+      - run: kaggle-agent scout --limit 25
+      - name: Commit refreshed scout report
+        run: |
+          git config user.name "kaggle-topper-agent[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/scout.md reports/scout.json
+          git diff --cached --quiet || git commit -m "chore: refresh Kaggle competition scout"
+          git push
