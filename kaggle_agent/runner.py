@@ -62,7 +62,33 @@ class AgentRunner:
         if not results: raise RuntimeError("No successful experiments")
         higher=results[0][1].higher_is_better; eid,best=sorted(results,key=lambda x:x[1].cv_score,reverse=higher)[0]
         prev=state.get("best_cv"); improved=prev is None or ((best.cv_score-float(prev)) if higher else (float(prev)-best.cv_score))>=float(self.cfg["safety"].get("min_cv_improvement",.0001))
-        result={"competition":competition,"cycle_index":cycle,"best_experiment_id":eid,"best_model":best.model_name,"metric":best.metric,"best_cv":best.cv_score,"previous_best_cv":prev,"improved":improved,"submitted":False,"public_score":None}
+        result={
+            "competition":competition,
+            "cycle_index":cycle,
+            "best_experiment_id":eid,
+            "best_model":best.model_name,
+            "metric":best.metric,
+            "best_cv":best.cv_score,
+            "previous_best_cv":prev,
+            "improved":improved,
+            "submitted":False,
+            "public_score":None,
+            "experiments":[
+                {
+                    "experiment_id":exp_id,
+                    "model":res.model_name,
+                    "cv_score":res.cv_score,
+                    "metric":res.metric,
+                    "params":res.params,
+                    "submission_file":str(res.submission_path),
+                }
+                for exp_id,res in sorted(
+                    results,
+                    key=lambda x:x[1].cv_score,
+                    reverse=higher,
+                )
+            ],
+        }
         if improved and self._enabled() and self._approved(competition):
             text=self.client.submit(competition,best.submission_path,f"kaggle-topper-agent exp={eid} model={best.model_name} cv={best.cv_score:.6f}",int(self.cfg["safety"].get("submission_wait_seconds",1200)))
             score=self.client.extract_public_score(text); ref=self.client.extract_submission_ref(text); self.store.update_submission(eid,score,ref); result.update(submitted=True,public_score=score,submission_ref=ref)
