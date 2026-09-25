@@ -1,0 +1,31 @@
+[project]
+name = "kaggle-topper-agent"
+version = "0.2.0"
+description = "Rule-aware autonomous Kaggle tabular competition agent"
+requires-python = ">=3.11"
+dependencies = [
+  "kaggle>=1.8.0",
+  "pandas>=2.2",
+  "numpy>=1.26",
+  "scikit-learn>=1.5",
+  "pyyaml>=6.0",
+  "joblib>=1.4",
+]
+
+[project.optional-dependencies]
+boost = [
+  "catboost>=1.2.8",
+  "lightgbm>=4.5",
+  "xgboost>=2.1",
+]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+kaggle-agent = "kaggle_agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["kaggle_agent*"]
