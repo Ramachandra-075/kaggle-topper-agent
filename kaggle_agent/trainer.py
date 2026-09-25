@@ -108,9 +108,20 @@ def _task(y):
     if y.dtype==object or str(y.dtype).startswith("category") or str(y.dtype)=="bool": return "classification"
     return "classification" if y.nunique(dropna=True)<=max(20,int(len(y)*.01)) else "regression"
 def _prep(X,features):
-    cats=[c for c in features if X[c].dtype==object or str(X[c].dtype).startswith("category")]
-    nums=[c for c in features if c not in cats]
-    return ColumnTransformer([("num",Pipeline([("imp",SimpleImputer(strategy="median"))]),nums),("cat",Pipeline([("imp",SimpleImputer(strategy="most_frequent")),("ord",OrdinalEncoder(handle_unknown="use_encoded_value",unknown_value=-1))]),cats)])
+    # Use pandas' dtype helpers instead of string equality. Kaggle CSV data can
+    # arrive as object, pandas string dtype, categorical, boolean or extension
+    # dtypes; only genuinely numeric columns should ever reach median imputation.
+    nums=[c for c in features if pd.api.types.is_numeric_dtype(X[c]) and not pd.api.types.is_bool_dtype(X[c])]
+    cats=[c for c in features if c not in nums]
+    return ColumnTransformer([
+        ("num",Pipeline([
+            ("imp",SimpleImputer(strategy="median"))
+        ]),nums),
+        ("cat",Pipeline([
+            ("imp",SimpleImputer(strategy="most_frequent")),
+            ("ord",OrdinalEncoder(handle_unknown="use_encoded_value",unknown_value=-1))
+        ]),cats)
+    ])
 def _model(name,task,seed,variant):
     v=variant%5
     if name=="histgb":
