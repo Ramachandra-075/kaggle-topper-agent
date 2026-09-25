@@ -122,6 +122,44 @@ def _prep(X,features):
             ("ord",OrdinalEncoder(handle_unknown="use_encoded_value",unknown_value=-1))
         ]),cats)
     ])
+def _regression_splits(X, y, folds, random_state):
+    """Balance target ranges across folds so rare expensive cars are represented."""
+    try:
+        n_bins = min(10, max(folds, int(len(y) / 80)))
+        ranked = pd.Series(y).rank(method="first")
+        bins = pd.qcut(ranked, q=n_bins, labels=False, duplicates="drop")
+        if pd.Series(bins).nunique() >= folds:
+            return list(StratifiedKFold(folds, shuffle=True, random_state=random_state).split(X, bins))
+    except Exception:
+        pass
+    return list(KFold(folds, shuffle=True, random_state=random_state).split(X))
+
+
+def _catboost_frames(X, Xt):
+    Xc = X.copy()
+    Xtc = Xt.copy()
+    cat_cols = [
+        col for col in Xc.columns
+        if not pd.api.types.is_numeric_dtype(Xc[col]) or pd.api.types.is_bool_dtype(Xc[col])
+    ]
+    num_cols = [col for col in Xc.columns if col not in cat_cols]
+
+    for col in cat_cols:
+        Xc[col] = Xc[col].astype("string").fillna("__MISSING__").astype(str)
+        Xtc[col] = Xtc[col].astype("string").fillna("__MISSING__").astype(str)
+
+    for col in num_cols:
+        Xc[col] = pd.to_numeric(Xc[col], errors="coerce")
+        Xtc[col] = pd.to_numeric(Xtc[col], errors="coerce")
+        med = Xc[col].median()
+        if pd.isna(med):
+            med = 0.0
+        Xc[col] = Xc[col].fillna(float(med))
+        Xtc[col] = Xtc[col].fillna(float(med))
+
+    return Xc, Xtc, cat_cols
+
+
 def _model(name,task,seed,variant):
     v=variant%5
     if name=="histgb":
@@ -189,25 +227,66 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
     Xt = combined.iloc[len(X):].reset_index(drop=True)
     features = list(X.columns)
     nc=int(y.nunique()) if task=="classification" else 0; labels=np.unique(y.dropna()) if task=="classification" else None
-    prep=_prep(X,features); est,params=_model(model_name,task,random_state,variant_index)
+    est,params=_model(model_name,task,random_state,variant_index)
     params=dict(params,variant_index=variant_index%5)
-    if task=="classification":
-        split=StratifiedKFold(folds,shuffle=True,random_state=random_state)
-        oof=np.zeros((len(train),nc)) if nc>2 else np.zeros(len(train)); preds=[]
-        for tr,va in split.split(X,y):
-            pipe=Pipeline([("prep",clone(prep)),("model",clone(est))]); pipe.fit(X.iloc[tr],y.iloc[tr])
-            vp=pipe.predict_proba(X.iloc[va]); tp2=pipe.predict_proba(Xt)
-            if nc==2: oof[va]=vp[:,1]; preds.append(tp2[:,1])
-            else: oof[va]=vp; preds.append(tp2)
+
+    if model_name == "catboost":
+        Xcb, Xtcb, cat_cols = _catboost_frames(X, Xt)
+        params["native_categorical_count"] = len(cat_cols)
+        if task=="classification":
+            split=StratifiedKFold(folds,shuffle=True,random_state=random_state)
+            split_iter=list(split.split(Xcb,y))
+            oof=np.zeros((len(train),nc)) if nc>2 else np.zeros(len(train))
+        else:
+            split_iter=_regression_splits(Xcb,y,folds,random_state)
+            oof=np.zeros(len(train))
+        preds=[]
+        for tr,va in split_iter:
+            fold_model=clone(est)
+            fold_model.fit(Xcb.iloc[tr],y.iloc[tr],cat_features=cat_cols,verbose=False)
+            if task=="classification":
+                vp=fold_model.predict_proba(Xcb.iloc[va]); tp2=fold_model.predict_proba(Xtcb)
+                if nc==2:
+                    oof[va]=vp[:,1]; preds.append(tp2[:,1])
+                else:
+                    oof[va]=vp; preds.append(tp2)
+            else:
+                oof[va]=np.clip(fold_model.predict(Xcb.iloc[va]),0,None)
+                preds.append(np.clip(fold_model.predict(Xtcb),0,None))
+        test_pred=np.mean(preds,axis=0)
+        metric,higher,cv=_score(task,y,oof,nc,metric_override,labels)
+        final=clone(est)
+        final.fit(Xcb,y,cat_features=cat_cols,verbose=False)
+        model_path=out/"model.joblib"
+        joblib.dump({"model":final,"features":features,"cat_cols":cat_cols},model_path)
     else:
-        split=KFold(folds,shuffle=True,random_state=random_state); oof=np.zeros(len(train)); preds=[]
-        for tr,va in split.split(X):
+        prep=_prep(X,features)
+        if task=="classification":
+            split=StratifiedKFold(folds,shuffle=True,random_state=random_state)
+            split_iter=list(split.split(X,y))
+            oof=np.zeros((len(train),nc)) if nc>2 else np.zeros(len(train))
+        else:
+            split_iter=_regression_splits(X,y,folds,random_state)
+            oof=np.zeros(len(train))
+        preds=[]
+        for tr,va in split_iter:
             pipe=Pipeline([("prep",clone(prep)),("model",clone(est))]); pipe.fit(X.iloc[tr],y.iloc[tr])
-            oof[va]=pipe.predict(X.iloc[va]); preds.append(pipe.predict(Xt))
-    test_pred=np.mean(preds,axis=0); metric,higher,cv=_score(task,y,oof,nc,metric_override,labels)
-    final=Pipeline([("prep",prep),("model",est)])
-    with warnings.catch_warnings(): warnings.simplefilter("ignore"); final.fit(X,y)
-    model_path=out/"model.joblib"; joblib.dump(final,model_path)
+            if task=="classification":
+                vp=pipe.predict_proba(X.iloc[va]); tp2=pipe.predict_proba(Xt)
+                if nc==2:
+                    oof[va]=vp[:,1]; preds.append(tp2[:,1])
+                else:
+                    oof[va]=vp; preds.append(tp2)
+            else:
+                oof[va]=np.clip(pipe.predict(X.iloc[va]),0,None)
+                preds.append(np.clip(pipe.predict(Xt),0,None))
+        test_pred=np.mean(preds,axis=0)
+        metric,higher,cv=_score(task,y,oof,nc,metric_override,labels)
+        final=Pipeline([("prep",prep),("model",est)])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            final.fit(X,y)
+        model_path=out/"model.joblib"; joblib.dump(final,model_path)
     targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
     if len(targets)==1:
         col=targets[0]
@@ -215,7 +294,7 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
             values=sample[col].dropna(); probabilistic=len(values)>0 and pd.api.types.is_numeric_dtype(values) and values.between(0,1).all() and not np.allclose(values,np.round(values))
             if prediction_mode=="proba" or (prediction_mode=="auto" and probabilistic): sample[col]=test_pred
             else: sample[col]=np.where(test_pred>=.5,labels[1],labels[0])
-        else: sample[col]=test_pred
+        else: sample[col]=np.clip(test_pred,0,None) if task=="regression" else test_pred
     elif task=="classification" and nc>2 and len(targets)==nc:
         for i,c in enumerate(targets): sample[c]=test_pred[:,i]
     else: raise ValueError("Unsupported submission layout")
@@ -227,10 +306,29 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
     first=results[0]; same=[r for r in results if r.task==first.task and r.metric==first.metric]
     if len(same)<2:return None
     ranked=sorted(same,key=lambda r:r.cv_score,reverse=first.higher_is_better)[:top_k]
-    val=np.mean([r.validation_predictions for r in ranked],axis=0); testp=np.mean([r.test_predictions for r in ranked],axis=0)
     data=Path(data_dir); tp, sp, pp = _discover_dataset_files(data)
     train=_read_table(tp); test=_read_table(sp); sample=_read_table(pp)
     target=_target(train,test); y=train[target]; nc=int(y.nunique()) if first.task=="classification" else 0; labels=np.unique(y.dropna()) if first.task=="classification" else None
+
+    if first.task=="regression":
+        P=np.column_stack([r.validation_predictions for r in ranked])
+        T=np.column_stack([r.test_predictions for r in ranked])
+        try:
+            weights=np.linalg.lstsq(P,np.asarray(y,dtype=float),rcond=None)[0]
+            weights=np.clip(weights,0,None)
+            if float(weights.sum()) <= 0:
+                weights=np.ones(len(ranked),dtype=float)
+            weights=weights/weights.sum()
+        except Exception:
+            weights=np.ones(len(ranked),dtype=float)/len(ranked)
+        val=np.clip(P @ weights,0,None)
+        testp=np.clip(T @ weights,0,None)
+        ensemble_weights={r.model_name:float(w) for r,w in zip(ranked,weights)}
+    else:
+        val=np.mean([r.validation_predictions for r in ranked],axis=0)
+        testp=np.mean([r.test_predictions for r in ranked],axis=0)
+        ensemble_weights={r.model_name:1.0/len(ranked) for r in ranked}
+
     metric,higher,cv=_score(first.task,y,val,nc,metric_override,labels)
     out=Path(out_dir); out.mkdir(parents=True,exist_ok=True); targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
     if len(targets)==1:
@@ -239,5 +337,5 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
     elif first.task=="classification" and nc>2 and len(targets)==nc:
         for i,c in enumerate(targets): sample[c]=testp[:,i]
     else:return None
-    sub=out/"submission.csv"; sample.to_csv(sub,index=False); meta=out/"ensemble.json"; meta.write_text(str([r.model_name for r in ranked]))
-    return TrainResult(first.competition,"ensemble_"+"_".join(r.model_name for r in ranked),first.task,metric,higher,cv,sub,meta,target,first.features,{"models":[r.model_name for r in ranked]},val,testp)
+    sub=out/"submission.csv"; sample.to_csv(sub,index=False); meta=out/"ensemble.json"; meta.write_text(str(ensemble_weights))
+    return TrainResult(first.competition,"ensemble_"+"_".join(r.model_name for r in ranked),first.task,metric,higher,cv,sub,meta,target,first.features,{"models":[r.model_name for r in ranked],"weights":ensemble_weights},val,testp)
