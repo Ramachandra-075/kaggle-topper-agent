@@ -1,0 +1,6 @@
+competition: used-car-price-prediction-challenge
+status: selected
+auto_submit: false
+metric: r2
+task: regression
+reason: "Active community tabular competition with 3 teams and 7 submissions at selection time."
