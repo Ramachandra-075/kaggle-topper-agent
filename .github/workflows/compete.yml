@@ -1,0 +1,52 @@
+name: Kaggle Autonomous Competition Cycle
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 */12 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kaggle-${{ vars.KAGGLE_COMPETITION }}
+  cancel-in-progress: false
+
+jobs:
+  compete:
+    runs-on: ubuntu-latest
+    if: ${{ vars.KAGGLE_COMPETITION != '' }}
+    timeout-minutes: 330
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_ALLOW_AUTO_SUBMIT: ${{ vars.KAGGLE_ALLOW_AUTO_SUBMIT }}
+      KAGGLE_APPROVED_COMPETITIONS: ${{ vars.KAGGLE_APPROVED_COMPETITIONS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install agent and boosted models
+        run: python -m pip install -e ".[boost]"
+      - run: kaggle-agent doctor
+      - name: Run one guarded autonomous cycle
+        run: kaggle-agent auto "${{ vars.KAGGLE_COMPETITION }}"
+      - name: Persist safe state
+        run: |
+          git config user.name "kaggle-topper-agent[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/
+          git diff --cached --quiet || git commit -m "chore: persist Kaggle agent state"
+          git push
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-agent-${{ vars.KAGGLE_COMPETITION }}-${{ github.run_id }}
+          path: |
+            workspace/${{ vars.KAGGLE_COMPETITION }}/rule_report.json
+            workspace/${{ vars.KAGGLE_COMPETITION }}/runs/**/submission.csv
+            reports/**
+          if-no-files-found: ignore
+          retention-days: 14
