@@ -1,0 +1,19 @@
+{
+  "best_cv": -0.002449940431600961,
+  "best_model": "extratrees",
+  "cycle_index": 1,
+  "last_cycle": {
+    "best_cv": -0.002449940431600961,
+    "best_experiment_id": 2,
+    "best_model": "extratrees",
+    "competition": "used-car-price-prediction-challenge",
+    "cycle_index": 0,
+    "improved": true,
+    "metric": "r2",
+    "previous_best_cv": null,
+    "public_score": null,
+    "submitted": false
+  },
+  "metric": "r2",
+  "updated_at": "2026-09-25T16:34:27.010310+00:00"
+}
