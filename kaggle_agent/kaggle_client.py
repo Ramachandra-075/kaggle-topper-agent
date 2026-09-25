@@ -20,7 +20,7 @@ class KaggleClient:
         out=self._run(["competitions","list","--group",group,"--category",category,"--sort-by","numberOfTeams","--page-size",str(page_size),"-v"])
         return list(csv.DictReader(io.StringIO(out)))
     def competition_page(self,competition,page_name):
-        return self._run(["competitions","pages","list",competition,"--page-name",page_name,"--content"])
+        return self._run(["competitions","pages","-c",competition,"--page-name",page_name,"--content"])
     def download(self,competition,dest):
         dest=Path(dest); dest.mkdir(parents=True,exist_ok=True)
         self._run(["competitions","download",competition,"-p",str(dest),"-o","-q"])
