@@ -1,0 +1,40 @@
+name: One-time approved EV benchmark submission
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/submit-ev-benchmark.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  submit:
+    if: github.event.head_commit.message == 'chore: submit approved EV baseline'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_ALLOW_AUTO_SUBMIT: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Kaggle CLI
+        run: python -m pip install kaggle
+      - name: Download exact successful Cycle 3 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/actions/artifacts/10910489199/zip > ev-cycle3.zip
+          unzip -q ev-cycle3.zip -d ev-cycle3
+          test -s ev-cycle3/workspace/playground-series-s6e9/runs/ensemble/submission.csv
+      - name: Submit approved baseline once
+        run: |
+          kaggle competitions submit \
+            -c playground-series-s6e9 \
+            -f ev-cycle3/workspace/playground-series-s6e9/runs/ensemble/submission.csv \
+            -m "Cycle 3 ensemble baseline CV ROC-AUC 0.941612"
