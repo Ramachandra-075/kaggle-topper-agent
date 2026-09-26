@@ -1,16 +1,29 @@
 {
   "best_cv": -0.002449940431600961,
   "best_model": "extratrees",
-  "cycle_index": 3,
+  "cycle_index": 4,
   "last_cycle": {
-    "best_cv": -0.05256377124056688,
-    "best_experiment_id": 6,
-    "best_model": "ensemble_extratrees_catboost_histgb",
+    "best_cv": -0.04153694735805824,
+    "best_experiment_id": 2,
+    "best_model": "extratrees",
     "competition": "used-car-price-prediction-challenge",
-    "cycle_index": 2,
+    "cycle_index": 3,
     "experiments": [
       {
-        "cv_score": -0.05256377124056688,
+        "cv_score": -0.04153694735805824,
+        "experiment_id": 2,
+        "metric": "r2",
+        "model": "extratrees",
+        "params": {
+          "max_features": 0.6,
+          "min_samples_leaf": 2,
+          "n_estimators": 1100,
+          "variant_index": 3
+        },
+        "submission_file": "workspace/used-car-price-prediction-challenge/runs/extratrees/submission.csv"
+      },
+      {
+        "cv_score": -0.04153694735805824,
         "experiment_id": 6,
         "metric": "r2",
         "model": "ensemble_extratrees_catboost_histgb",
@@ -22,76 +35,63 @@
           ],
           "weights": {
             "catboost": 0.0,
-            "extratrees": 0.9190894067837535,
-            "histgb": 0.0809105932162466
+            "extratrees": 1.0,
+            "histgb": 0.0
           }
         },
         "submission_file": "workspace/used-car-price-prediction-challenge/runs/ensemble/submission.csv"
       },
       {
-        "cv_score": -0.05368818104489659,
-        "experiment_id": 2,
-        "metric": "r2",
-        "model": "extratrees",
-        "params": {
-          "max_features": 1.0,
-          "min_samples_leaf": 4,
-          "n_estimators": 800,
-          "variant_index": 2
-        },
-        "submission_file": "workspace/used-car-price-prediction-challenge/runs/extratrees/submission.csv"
-      },
-      {
-        "cv_score": -0.10883449760990405,
+        "cv_score": -0.11565015137199475,
         "experiment_id": 3,
         "metric": "r2",
         "model": "catboost",
         "params": {
-          "depth": 6,
-          "iterations": 750,
-          "learning_rate": 0.055,
+          "depth": 9,
+          "iterations": 1350,
+          "learning_rate": 0.025,
           "native_categorical_count": 13,
-          "variant_index": 2
+          "variant_index": 3
         },
         "submission_file": "workspace/used-car-price-prediction-challenge/runs/catboost/submission.csv"
       },
       {
-        "cv_score": -0.18551144922114826,
+        "cv_score": -0.18663108714419185,
         "experiment_id": 1,
         "metric": "r2",
         "model": "histgb",
         "params": {
-          "l2_regularization": 3,
-          "learning_rate": 0.08,
-          "max_iter": 380,
-          "max_leaf_nodes": 15,
-          "variant_index": 2
+          "l2_regularization": 5,
+          "learning_rate": 0.045,
+          "max_iter": 750,
+          "max_leaf_nodes": 31,
+          "variant_index": 3
         },
         "submission_file": "workspace/used-car-price-prediction-challenge/runs/histgb/submission.csv"
       },
       {
-        "cv_score": -0.25037140561212534,
+        "cv_score": -0.22224120991861218,
         "experiment_id": 4,
         "metric": "r2",
         "model": "lightgbm",
         "params": {
-          "learning_rate": 0.04,
-          "n_estimators": 900,
-          "num_leaves": 15,
-          "variant_index": 2
+          "learning_rate": 0.018,
+          "n_estimators": 1800,
+          "num_leaves": 47,
+          "variant_index": 3
         },
         "submission_file": "workspace/used-car-price-prediction-challenge/runs/lightgbm/submission.csv"
       },
       {
-        "cv_score": -1.1893665695843878,
+        "cv_score": -1.215078581212969,
         "experiment_id": 5,
         "metric": "r2",
         "model": "xgboost",
         "params": {
-          "learning_rate": 0.04,
-          "max_depth": 4,
-          "n_estimators": 900,
-          "variant_index": 2
+          "learning_rate": 0.02,
+          "max_depth": 7,
+          "n_estimators": 1750,
+          "variant_index": 3
         },
         "submission_file": "workspace/used-car-price-prediction-challenge/runs/xgboost/submission.csv"
       }
@@ -103,5 +103,5 @@
     "submitted": false
   },
   "metric": "r2",
-  "updated_at": "2026-09-25T16:47:30.464707+00:00"
+  "updated_at": "2026-09-26T05:27:59.454822+00:00"
 }
