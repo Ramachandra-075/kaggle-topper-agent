@@ -123,15 +123,7 @@ def _prep(X,features):
         ]),cats)
     ])
 def _regression_splits(X, y, folds, random_state):
-    """Balance target ranges across folds so rare expensive cars are represented."""
-    try:
-        n_bins = min(10, max(folds, int(len(y) / 80)))
-        ranked = pd.Series(y).rank(method="first")
-        bins = pd.qcut(ranked, q=n_bins, labels=False, duplicates="drop")
-        if pd.Series(bins).nunique() >= folds:
-            return list(StratifiedKFold(folds, shuffle=True, random_state=random_state).split(X, bins))
-    except Exception:
-        pass
+    """Use one stable shuffled K-fold protocol for comparable regression CV."""
     return list(KFold(folds, shuffle=True, random_state=random_state).split(X))
 
 
