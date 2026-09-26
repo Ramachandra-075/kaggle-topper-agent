@@ -222,6 +222,15 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
     est,params=_model(model_name,task,random_state,variant_index)
     params=dict(params,variant_index=variant_index%5)
 
+    # XGBoost requires integer class labels even when Kaggle targets are strings
+    # such as "No"/"Yes". Keep the original labels for scoring/submission while
+    # fitting XGBoost on stable 0..K-1 codes.
+    fit_y = y
+    if task=="classification" and model_name=="xgboost":
+        class_to_int={label:i for i,label in enumerate(labels)}
+        fit_y=y.map(class_to_int).astype(int)
+        params["encoded_target_classes"]=[str(x) for x in labels]
+
     if model_name == "catboost":
         Xcb, Xtcb, cat_cols = _catboost_frames(X, Xt)
         params["native_categorical_count"] = len(cat_cols)
@@ -262,7 +271,7 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
             oof=np.zeros(len(train))
         preds=[]
         for tr,va in split_iter:
-            pipe=Pipeline([("prep",clone(prep)),("model",clone(est))]); pipe.fit(X.iloc[tr],y.iloc[tr])
+            pipe=Pipeline([("prep",clone(prep)),("model",clone(est))]); pipe.fit(X.iloc[tr],fit_y.iloc[tr])
             if task=="classification":
                 vp=pipe.predict_proba(X.iloc[va]); tp2=pipe.predict_proba(Xt)
                 if nc==2:
@@ -277,7 +286,7 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
         final=Pipeline([("prep",prep),("model",est)])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            final.fit(X,y)
+            final.fit(X,fit_y)
         model_path=out/"model.joblib"; joblib.dump(final,model_path)
     targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
     if len(targets)==1:
@@ -300,7 +309,15 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
     ranked=sorted(same,key=lambda r:r.cv_score,reverse=first.higher_is_better)[:top_k]
     data=Path(data_dir); tp, sp, pp = _discover_dataset_files(data)
     train=_read_table(tp); test=_read_table(sp); sample=_read_table(pp)
-    target=_target(train,test); y=train[target]; nc=int(y.nunique()) if first.task=="classification" else 0; labels=np.unique(y.dropna()) if first.task=="classification" else None
+    target=_target(train,test)
+    # Individual models may train on a deterministic row cap for CI runtime.
+    # Score the ensemble against exactly the same deterministic target sample.
+    validation_len=len(ranked[0].validation_predictions)
+    if len(train)>validation_len:
+        train=train.sample(validation_len,random_state=42).reset_index(drop=True)
+    y=train[target]
+    nc=int(y.nunique()) if first.task=="classification" else 0
+    labels=np.unique(y.dropna()) if first.task=="classification" else None
 
     if first.task=="regression":
         P=np.column_stack([r.validation_predictions for r in ranked])
