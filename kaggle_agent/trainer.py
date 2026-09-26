@@ -334,9 +334,34 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
         testp=np.clip(T @ weights,0,None)
         ensemble_weights={r.model_name:float(w) for r,w in zip(ranked,weights)}
     else:
-        val=np.mean([r.validation_predictions for r in ranked],axis=0)
-        testp=np.mean([r.test_predictions for r in ranked],axis=0)
-        ensemble_weights={r.model_name:1.0/len(ranked) for r in ranked}
+        # ROC-AUC blending: search a small deterministic simplex of OOF weights.
+        # Equal averaging is a good baseline, but the strongest classifiers are
+        # highly correlated and usually benefit from unequal weights.
+        V=[np.asarray(r.validation_predictions) for r in ranked]
+        T=[np.asarray(r.test_predictions) for r in ranked]
+        if first.metric=="roc_auc" and nc==2 and len(ranked)<=3:
+            candidates=[]
+            step=0.05
+            if len(ranked)==2:
+                for i in range(21):
+                    candidates.append(np.array([i*step,1-i*step]))
+            else:
+                for i in range(21):
+                    for j in range(21-i):
+                        candidates.append(np.array([i*step,j*step,1-(i+j)*step]))
+            best_auc=-np.inf; weights=None
+            for w in candidates:
+                blend=sum(float(wi)*vi for wi,vi in zip(w,V))
+                auc=float(roc_auc_score(y,blend))
+                if auc>best_auc:
+                    best_auc=auc; weights=w
+            val=sum(float(wi)*vi for wi,vi in zip(weights,V))
+            testp=sum(float(wi)*ti for wi,ti in zip(weights,T))
+            ensemble_weights={r.model_name:float(w) for r,w in zip(ranked,weights)}
+        else:
+            val=np.mean(V,axis=0)
+            testp=np.mean(T,axis=0)
+            ensemble_weights={r.model_name:1.0/len(ranked) for r in ranked}
 
     metric,higher,cv=_score(first.task,y,val,nc,metric_override,labels)
     out=Path(out_dir); out.mkdir(parents=True,exist_ok=True); targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
