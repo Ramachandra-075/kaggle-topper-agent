@@ -1,0 +1,59 @@
+name: Kaggle EV Purchase Competition Cycle
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "kaggle_agent/**"
+      - "config/**"
+      - "pyproject.toml"
+      - ".github/workflows/ev-purchases.yml"
+  schedule:
+    - cron: "11 */12 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kaggle-playground-series-s6e9
+  cancel-in-progress: false
+
+jobs:
+  compete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_ALLOW_AUTO_SUBMIT: "false"
+      KAGGLE_APPROVED_COMPETITIONS: playground-series-s6e9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install agent and boosted models
+        run: python -m pip install -e ".[boost]"
+      - run: kaggle-agent doctor
+      - name: Run one guarded autonomous EV cycle
+        run: kaggle-agent auto "playground-series-s6e9"
+      - name: Persist safe EV state
+        run: |
+          git config user.name "kaggle-topper-agent[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/playground-series-s6e9.json
+          git diff --cached --quiet || git commit -m "chore: persist EV competition state"
+          git pull --rebase
+          git push
+      - name: Upload EV run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-agent-playground-series-s6e9-${{ github.run_id }}
+          path: |
+            workspace/playground-series-s6e9/rule_report.json
+            workspace/playground-series-s6e9/runs/**/submission.csv
+            reports/**
+          if-no-files-found: ignore
+          retention-days: 14
