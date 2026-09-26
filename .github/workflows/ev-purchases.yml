@@ -1,4 +1,5 @@
 name: Kaggle EV Purchase Competition Cycle
+# Independent guarded cycle for Playground S6E9.
 
 on:
   workflow_dispatch:
