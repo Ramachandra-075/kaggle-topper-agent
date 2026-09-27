@@ -216,7 +216,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
                 out[f"{col}__decimal_digit_2"] = np.floor(frac * 100).astype(float) % 10
 
         subsidy = ev_cols["subsidy_available"]
-        income = next(ev_cols[k] for k in ("income", "annual_income") if k in ev_cols)
+        income = next(ev_cols[k] for k in ("annual_income_usd", "income", "annual_income") if k in ev_cols)
         income_num = pd.to_numeric(out[income], errors="coerce")
         subsidy_raw = out[subsidy]
         if pd.api.types.is_numeric_dtype(subsidy_raw):
