@@ -180,8 +180,15 @@ def _model(name,task,seed,variant,competition=None):
         # useful ranking resolution. A larger max_bin is competition-specific.
         if competition == "playground-series-s6e9":
             p["max_bin"] = 8191
+            # V5: S6E9 behaves largely additively. Restrict each tree path to
+            # one feature so LightGBM cannot spend capacity on noisy pairwise
+            # interactions. Constraints are filled after feature engineering.
+            p["interaction_constraints"] = "single_feature"
         cls=LGBMClassifier if task=="classification" else LGBMRegressor
-        return cls(**p,subsample=.9,colsample_bytree=.9,random_state=seed,n_jobs=-1,verbosity=-1),p
+        model_p=dict(p)
+        if model_p.get("interaction_constraints") == "single_feature":
+            model_p.pop("interaction_constraints")
+        return cls(**model_p,subsample=.9,colsample_bytree=.9,random_state=seed,n_jobs=-1,verbosity=-1),p
     if name=="xgboost":
         try:
             from xgboost import XGBClassifier,XGBRegressor
@@ -225,6 +232,12 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
     nc=int(y.nunique()) if task=="classification" else 0; labels=np.unique(y.dropna()) if task=="classification" else None
     est,params=_model(model_name,task,random_state,variant_index,competition)
     params=dict(params,variant_index=variant_index%5)
+    if model_name=="lightgbm" and params.get("interaction_constraints")=="single_feature":
+        # LightGBM expects feature-index groups. [[0],[1],...] enforces a
+        # purely additive boosted-tree model while retaining all features.
+        constraints=[[i] for i in range(len(features))]
+        est.set_params(interaction_constraints=constraints)
+        params["interaction_constraints"]="single_feature"
 
     # XGBoost requires integer class labels even when Kaggle targets are strings
     # such as "No"/"Yes". Keep the original labels for scoring/submission while
