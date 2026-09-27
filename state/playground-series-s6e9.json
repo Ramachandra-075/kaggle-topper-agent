@@ -1,25 +1,25 @@
 {
   "best_cv": 0.9447844862989361,
   "best_model": "ensemble_lightgbm_xgboost",
-  "cycle_index": 8,
+  "cycle_index": 9,
   "last_cycle": {
-    "best_cv": 0.9434693228461328,
+    "best_cv": 0.9447180142549777,
     "best_experiment_id": 5,
-    "best_model": "ensemble_xgboost_seed42_xgboost_seed137_lightgbm_seed42_lightgbm_seed137",
+    "best_model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed42_xgboost_seed137",
     "competition": "playground-series-s6e9",
-    "cycle_index": 7,
+    "cycle_index": 8,
     "experiments": [
       {
-        "cv_score": 0.9434693228461328,
+        "cv_score": 0.9447180142549777,
         "experiment_id": 5,
         "metric": "roc_auc",
-        "model": "ensemble_xgboost_seed42_xgboost_seed137_lightgbm_seed42_lightgbm_seed137",
+        "model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed42_xgboost_seed137",
         "params": {
           "models": [
-            "xgboost_seed42",
-            "xgboost_seed137",
             "lightgbm_seed42",
-            "lightgbm_seed137"
+            "lightgbm_seed137",
+            "xgboost_seed42",
+            "xgboost_seed137"
           ],
           "weights": {
             "lightgbm_seed137": 0.25,
@@ -31,7 +31,39 @@
         "submission_file": "workspace/playground-series-s6e9/runs/ensemble/submission.csv"
       },
       {
-        "cv_score": 0.9432702426869244,
+        "cv_score": 0.9445668825684372,
+        "experiment_id": 1,
+        "metric": "roc_auc",
+        "model": "lightgbm_seed42",
+        "params": {
+          "interaction_constraints": "single_feature",
+          "learning_rate": 0.022,
+          "max_bin": 8191,
+          "n_estimators": 1600,
+          "num_leaves": 63,
+          "seed": 42,
+          "variant_index": 3
+        },
+        "submission_file": "workspace/playground-series-s6e9/runs/lightgbm_seed42/submission.csv"
+      },
+      {
+        "cv_score": 0.9445378392496491,
+        "experiment_id": 2,
+        "metric": "roc_auc",
+        "model": "lightgbm_seed137",
+        "params": {
+          "interaction_constraints": "single_feature",
+          "learning_rate": 0.022,
+          "max_bin": 8191,
+          "n_estimators": 1600,
+          "num_leaves": 63,
+          "seed": 137,
+          "variant_index": 3
+        },
+        "submission_file": "workspace/playground-series-s6e9/runs/lightgbm_seed137/submission.csv"
+      },
+      {
+        "cv_score": 0.94352643782711,
         "experiment_id": 3,
         "metric": "roc_auc",
         "model": "xgboost_seed42",
@@ -40,16 +72,16 @@
             "No",
             "Yes"
           ],
-          "learning_rate": 0.04,
-          "max_depth": 4,
-          "n_estimators": 900,
+          "learning_rate": 0.024,
+          "max_depth": 8,
+          "n_estimators": 1500,
           "seed": 42,
-          "variant_index": 2
+          "variant_index": 3
         },
         "submission_file": "workspace/playground-series-s6e9/runs/xgboost_seed42/submission.csv"
       },
       {
-        "cv_score": 0.9432532242663543,
+        "cv_score": 0.9434756954654507,
         "experiment_id": 4,
         "metric": "roc_auc",
         "model": "xgboost_seed137",
@@ -58,45 +90,13 @@
             "No",
             "Yes"
           ],
-          "learning_rate": 0.04,
-          "max_depth": 4,
-          "n_estimators": 900,
+          "learning_rate": 0.024,
+          "max_depth": 8,
+          "n_estimators": 1500,
           "seed": 137,
-          "variant_index": 2
+          "variant_index": 3
         },
         "submission_file": "workspace/playground-series-s6e9/runs/xgboost_seed137/submission.csv"
-      },
-      {
-        "cv_score": 0.9432184792727861,
-        "experiment_id": 1,
-        "metric": "roc_auc",
-        "model": "lightgbm_seed42",
-        "params": {
-          "interaction_constraints": "single_feature",
-          "learning_rate": 0.04,
-          "max_bin": 8191,
-          "n_estimators": 900,
-          "num_leaves": 15,
-          "seed": 42,
-          "variant_index": 2
-        },
-        "submission_file": "workspace/playground-series-s6e9/runs/lightgbm_seed42/submission.csv"
-      },
-      {
-        "cv_score": 0.9431895950340221,
-        "experiment_id": 2,
-        "metric": "roc_auc",
-        "model": "lightgbm_seed137",
-        "params": {
-          "interaction_constraints": "single_feature",
-          "learning_rate": 0.04,
-          "max_bin": 8191,
-          "n_estimators": 900,
-          "num_leaves": 15,
-          "seed": 137,
-          "variant_index": 2
-        },
-        "submission_file": "workspace/playground-series-s6e9/runs/lightgbm_seed137/submission.csv"
       }
     ],
     "improved": false,
@@ -106,5 +106,5 @@
     "submitted": false
   },
   "metric": "roc_auc",
-  "updated_at": "2026-09-27T06:40:44.870790+00:00"
+  "updated_at": "2026-09-27T08:00:33.614604+00:00"
 }
