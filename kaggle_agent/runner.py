@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os
+import json, os, traceback
 from pathlib import Path
 from .discovery import rank_candidates
 from .kaggle_client import KaggleClient
@@ -51,7 +51,7 @@ class AgentRunner:
             try:
                 r=train_model(competition,d/"data",d/"runs"/name,name,int(t["folds"]),int(t["random_state"]),str(t.get("prediction_mode","auto")),int(t.get("max_rows",400000)),metric,variant_index)
             except Exception as e:
-                print(f"skip {name}: {e}"); continue
+                print(f"skip {name}: {type(e).__name__}: {e!r}"); traceback.print_exc(); continue
             eid=self.store.add(competition,r.model_name,r.cv_score,r.metric,r.higher_is_better,r.params,str(r.submission_path)); out.append((eid,r)); trained.append(r)
         ens=build_ensemble(trained,d/"data",d/"runs"/"ensemble",int(t.get("ensemble_top_k",3)),str(t.get("prediction_mode","auto")),metric)
         if ens:
