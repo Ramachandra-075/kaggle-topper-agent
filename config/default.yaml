@@ -40,9 +40,12 @@ competition_training:
     models:
       - lightgbm
       - xgboost
-    ensemble_top_k: 2
-    # V6: use the complete S6E9 training set. V5 showed CatBoost contributes
-    # zero ensemble weight, so dropping it offsets much of the extra row cost.
+    # V8 seed diversity: keep the proven full-data models, vary CV/tree seeds,
+    # then let the existing ROC-AUC raw-vs-rank optimizer choose the best blend.
+    seeds:
+      - 42
+      - 137
+    ensemble_top_k: 4
     max_rows: 700000
 
 paths:
