@@ -195,13 +195,11 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         # Digit decomposition is unusually effective on synthetic Playground
         # Series tables because digit-position structure can survive generation.
         # Skip low-cardinality/binary columns where decomposition is redundant.
-        numeric_cols = [
-            col for col in list(out.columns)
-            if pd.api.types.is_numeric_dtype(out[col])
-            and out[col].nunique(dropna=True) > 20
-            and not col.startswith("__")
-            and "__" not in col
-        ]
+        # Ablation on this competition shows Annual_Income_USD carries
+        # essentially all of the useful digit-position signal. Decomposing the
+        # other numeric columns adds noisy digits and slightly hurts OOF AUC.
+        income = next(ev_cols[k] for k in ("annual_income_usd", "income", "annual_income") if k in ev_cols)
+        numeric_cols = [income]
         for col in numeric_cols:
             values = pd.to_numeric(out[col], errors="coerce").abs()
             rounded = np.floor(values.fillna(0)).astype("int64")
@@ -216,7 +214,6 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
                 out[f"{col}__decimal_digit_2"] = np.floor(frac * 100).astype(float) % 10
 
         subsidy = ev_cols["subsidy_available"]
-        income = next(ev_cols[k] for k in ("annual_income_usd", "income", "annual_income") if k in ev_cols)
         income_num = pd.to_numeric(out[income], errors="coerce")
         subsidy_raw = out[subsidy]
         if pd.api.types.is_numeric_dtype(subsidy_raw):
