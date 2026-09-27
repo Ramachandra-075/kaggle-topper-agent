@@ -41,7 +41,12 @@ class AgentRunner:
         if (d/"rule_report.json").exists():
             try: metric=json.loads((d/"rule_report.json").read_text()).get("metric")
             except Exception: pass
-        t=self.cfg["training"]; out=[]; trained=[]
+        t=dict(self.cfg["training"])
+        # Optional per-competition training profile. This lets large/specialized
+        # competitions use a focused suite without changing the global agent.
+        overrides=self.cfg.get("competition_training",{}).get(competition,{})
+        t.update(overrides)
+        out=[]; trained=[]
         for name in t["models"]:
             try:
                 r=train_model(competition,d/"data",d/"runs"/name,name,int(t["folds"]),int(t["random_state"]),str(t.get("prediction_mode","auto")),int(t.get("max_rows",400000)),metric,variant_index)
