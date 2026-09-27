@@ -1,16 +1,16 @@
 {
-  "best_cv": 0.943424030884291,
+  "best_cv": 0.9440270739585145,
   "best_model": "ensemble_lightgbm_xgboost_catboost",
-  "cycle_index": 4,
+  "cycle_index": 5,
   "last_cycle": {
-    "best_cv": 0.943424030884291,
+    "best_cv": 0.9440270739585145,
     "best_experiment_id": 4,
     "best_model": "ensemble_lightgbm_xgboost_catboost",
     "competition": "playground-series-s6e9",
-    "cycle_index": 3,
+    "cycle_index": 4,
     "experiments": [
       {
-        "cv_score": 0.943424030884291,
+        "cv_score": 0.9440270739585145,
         "experiment_id": 4,
         "metric": "roc_auc",
         "model": "ensemble_lightgbm_xgboost_catboost",
@@ -21,29 +21,30 @@
             "catboost"
           ],
           "weights": {
-            "catboost": 0.1499999999999999,
-            "lightgbm": 0.65,
-            "xgboost": 0.2
+            "catboost": 0.0,
+            "lightgbm": 0.75,
+            "xgboost": 0.25
           }
         },
         "submission_file": "workspace/playground-series-s6e9/runs/ensemble/submission.csv"
       },
       {
-        "cv_score": 0.9433294748641183,
+        "cv_score": 0.9439241474142245,
         "experiment_id": 1,
         "metric": "roc_auc",
         "model": "lightgbm",
         "params": {
-          "learning_rate": 0.018,
+          "interaction_constraints": "single_feature",
+          "learning_rate": 0.025,
           "max_bin": 8191,
-          "n_estimators": 1800,
-          "num_leaves": 47,
-          "variant_index": 3
+          "n_estimators": 1400,
+          "num_leaves": 39,
+          "variant_index": 4
         },
         "submission_file": "workspace/playground-series-s6e9/runs/lightgbm/submission.csv"
       },
       {
-        "cv_score": 0.9427968991097471,
+        "cv_score": 0.9432630020600219,
         "experiment_id": 2,
         "metric": "roc_auc",
         "model": "xgboost",
@@ -52,34 +53,34 @@
             "No",
             "Yes"
           ],
-          "learning_rate": 0.02,
-          "max_depth": 7,
-          "n_estimators": 1750,
-          "variant_index": 3
+          "learning_rate": 0.026,
+          "max_depth": 5,
+          "n_estimators": 1350,
+          "variant_index": 4
         },
         "submission_file": "workspace/playground-series-s6e9/runs/xgboost/submission.csv"
       },
       {
-        "cv_score": 0.9427373318790838,
+        "cv_score": 0.9428879082006386,
         "experiment_id": 3,
         "metric": "roc_auc",
         "model": "catboost",
         "params": {
-          "depth": 9,
-          "iterations": 1350,
-          "learning_rate": 0.025,
+          "depth": 7,
+          "iterations": 1050,
+          "learning_rate": 0.035,
           "native_categorical_count": 6,
-          "variant_index": 3
+          "variant_index": 4
         },
         "submission_file": "workspace/playground-series-s6e9/runs/catboost/submission.csv"
       }
     ],
     "improved": true,
     "metric": "roc_auc",
-    "previous_best_cv": 0.9431600181823352,
+    "previous_best_cv": 0.943424030884291,
     "public_score": null,
     "submitted": false
   },
   "metric": "roc_auc",
-  "updated_at": "2026-09-27T05:07:04.705124+00:00"
+  "updated_at": "2026-09-27T05:43:27.238043+00:00"
 }
