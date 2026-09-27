@@ -40,9 +40,10 @@ competition_training:
     models:
       - lightgbm
       - xgboost
-      - catboost
-    ensemble_top_k: 3
-    max_rows: 400000
+    ensemble_top_k: 2
+    # V6: use the complete S6E9 training set. V5 showed CatBoost contributes
+    # zero ensemble weight, so dropping it offsets much of the extra row cost.
+    max_rows: 700000
 
 paths:
   workspace: workspace
