@@ -199,7 +199,17 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         # essentially all of the useful digit-position signal. Decomposing the
         # other numeric columns adds noisy digits and slightly hurts OOF AUC.
         income = next(ev_cols[k] for k in ("annual_income_usd", "income", "annual_income") if k in ev_cols)
-        numeric_cols = [income]
+        # V12: keep the proven income digits and add exhaustive digit
+        # decomposition for XGB/LGBM to expose synthetic generator structure.
+        # Decimal positions are scaled first so commute-like continuous columns
+        # contribute stable digit positions too.
+        numeric_cols = [
+            col for col in out.columns
+            if pd.api.types.is_numeric_dtype(out[col])
+            and not pd.api.types.is_bool_dtype(out[col])
+            and int(out[col].nunique(dropna=True)) > 20
+            and "__" not in col
+        ]
         for col in numeric_cols:
             values = pd.to_numeric(out[col], errors="coerce").abs()
             rounded = np.floor(values.fillna(0)).astype("int64")
