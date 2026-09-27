@@ -188,7 +188,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     ev_cols = {col.lower(): col for col in out.columns}
     is_ev_purchase = (
         "subsidy_available" in ev_cols
-        and any(k in ev_cols for k in ("income", "annual_income"))
+        and any(k in ev_cols for k in ("annual_income_usd", "income", "annual_income"))
         and any(k in ev_cols for k in ("range_anxiety_level", "range_anxiety"))
     )
     if is_ev_purchase:
