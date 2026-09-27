@@ -32,6 +32,18 @@ training:
   ensemble_top_k: 3
   max_rows: 400000
 
+# Focused profile for the large EV Playground dataset. The previous generic
+# five-model suite repeatedly hit runner shutdown around 27 minutes.
+competition_training:
+  playground-series-s6e9:
+    folds: 5
+    models:
+      - lightgbm
+      - xgboost
+      - catboost
+    ensemble_top_k: 3
+    max_rows: 400000
+
 paths:
   workspace: workspace
   state: state
