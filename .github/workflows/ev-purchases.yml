@@ -55,14 +55,24 @@ jobs:
             exit 0
           fi
           git commit -m "chore: persist autonomous EV state [skip ci]"
+          # Code/config may advance while a long experiment is running. Rebase
+          # only non-state changes, then deliberately keep this run's freshly
+          # computed state file so concurrent commits cannot create a conflict.
           for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
-              exit 0
+            git fetch origin main
+            if git rebase origin/main; then
+              if git push origin HEAD:main; then exit 0; fi
+            else
+              if git status --porcelain | grep -q "state/playground-series-s6e9.json"; then
+                git checkout --theirs state/playground-series-s6e9.json
+                git add state/playground-series-s6e9.json
+                GIT_EDITOR=true git rebase --continue || true
+                if git push origin HEAD:main; then exit 0; fi
+              fi
             fi
             echo "State push collision; retrying ($attempt/5)..."
             git rebase --abort 2>/dev/null || true
-            git reset --hard HEAD
-            sleep $((attempt * 5))
+            sleep $((attempt * 3))
           done
           echo "Unable to persist state after retries."
           exit 1
