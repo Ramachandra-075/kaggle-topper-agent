@@ -364,16 +364,25 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
         # predictions, then keeps whichever actually scores better.
         V=[np.asarray(r.validation_predictions) for r in ranked]
         T=[np.asarray(r.test_predictions) for r in ranked]
-        if first.metric=="roc_auc" and nc==2 and len(ranked)<=3:
+        if first.metric=="roc_auc" and nc==2 and len(ranked)<=4:
             candidates=[]
+            # V10 extends the deterministic simplex search to four models.
+            # A 0.05 grid gives 1771 four-way combinations, small enough to
+            # evaluate cheaply while avoiding an unconstrained meta-model.
             step=0.05
+            units=20
             if len(ranked)==2:
-                for i in range(21):
-                    candidates.append(np.array([i*step,1-i*step]))
+                for i in range(units+1):
+                    candidates.append(np.array([i/units,(units-i)/units]))
+            elif len(ranked)==3:
+                for i in range(units+1):
+                    for j in range(units+1-i):
+                        candidates.append(np.array([i/units,j/units,(units-i-j)/units]))
             else:
-                for i in range(21):
-                    for j in range(21-i):
-                        candidates.append(np.array([i*step,j*step,1-(i+j)*step]))
+                for i in range(units+1):
+                    for j in range(units+1-i):
+                        for k in range(units+1-i-j):
+                            candidates.append(np.array([i/units,j/units,k/units,(units-i-j-k)/units]))
 
             def _pct_rank(a):
                 return pd.Series(a).rank(method="average",pct=True).to_numpy()
