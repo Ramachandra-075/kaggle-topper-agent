@@ -198,9 +198,23 @@ def _model(name,task,seed,variant,competition=None):
             from xgboost import XGBClassifier,XGBRegressor
         except ImportError as e: raise RuntimeError("xgboost not installed") from e
         p=dict(n_estimators=[1200,1500,900,1750,1350][v],learning_rate=[.03,.024,.04,.02,.026][v],max_depth=[6,8,4,7,5][v])
-        # Same isolation for XGBoost: V7 used variant 1.
+        # V13: S6E9 public high-scoring XGBoost recipes benefit from a
+        # histogram lossguide tree with many leaves and higher bin resolution.
+        # Keep the run CPU-compatible; unlike the public GPU notebooks this
+        # deliberately uses a bounded tree count so CI runtime stays practical.
         if competition == "playground-series-s6e9":
-            p.update(n_estimators=1500,learning_rate=.024,max_depth=8)
+            p.update(
+                n_estimators=2600,
+                learning_rate=.018,
+                max_depth=0,
+                tree_method="hist",
+                grow_policy="lossguide",
+                max_leaves=256,
+                max_bin=1024,
+                min_child_weight=8,
+                reg_lambda=2.0,
+                reg_alpha=.05,
+            )
         cls=XGBClassifier if task=="classification" else XGBRegressor
         return cls(**p,subsample=.9,colsample_bytree=.9,random_state=seed,n_jobs=-1),p
     raise ValueError(name)
