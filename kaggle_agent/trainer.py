@@ -152,7 +152,7 @@ def _catboost_frames(X, Xt):
     return Xc, Xtc, cat_cols
 
 
-def _model(name,task,seed,variant):
+def _model(name,task,seed,variant,competition=None):
     v=variant%5
     if name=="histgb":
         lr=[.06,.035,.08,.045,.025][v]; leaves=[31,63,15,31,47][v]; it=[500,850,380,750,1100][v]
@@ -176,6 +176,10 @@ def _model(name,task,seed,variant):
             from lightgbm import LGBMClassifier,LGBMRegressor
         except ImportError as e: raise RuntimeError("lightgbm not installed") from e
         p=dict(n_estimators=[1200,1600,900,1800,1400][v],learning_rate=[.03,.022,.04,.018,.025][v],num_leaves=[31,63,15,47,39][v])
+        # S6E9 income has high cardinality; default 255-bin quantization loses
+        # useful ranking resolution. A larger max_bin is competition-specific.
+        if competition == "playground-series-s6e9":
+            p["max_bin"] = 8191
         cls=LGBMClassifier if task=="classification" else LGBMRegressor
         return cls(**p,subsample=.9,colsample_bytree=.9,random_state=seed,n_jobs=-1,verbosity=-1),p
     if name=="xgboost":
@@ -219,7 +223,7 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
     Xt = combined.iloc[len(X):].reset_index(drop=True)
     features = list(X.columns)
     nc=int(y.nunique()) if task=="classification" else 0; labels=np.unique(y.dropna()) if task=="classification" else None
-    est,params=_model(model_name,task,random_state,variant_index)
+    est,params=_model(model_name,task,random_state,variant_index,competition)
     params=dict(params,variant_index=variant_index%5)
 
     # XGBoost requires integer class labels even when Kaggle targets are strings
