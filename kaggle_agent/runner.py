@@ -47,12 +47,24 @@ class AgentRunner:
         overrides=self.cfg.get("competition_training",{}).get(competition,{})
         t.update(overrides)
         out=[]; trained=[]
+        # V8: allow competition profiles to train the same proven model across
+        # several random seeds. Seed diversity changes fold assignment and
+        # stochastic tree sampling, reducing variance without speculative
+        # feature changes.
+        seeds=[int(t["random_state"])]
+        if competition=="playground-series-s6e9":
+            seeds=[int(x) for x in t.get("seeds",[t["random_state"]])]
         for name in t["models"]:
-            try:
-                r=train_model(competition,d/"data",d/"runs"/name,name,int(t["folds"]),int(t["random_state"]),str(t.get("prediction_mode","auto")),int(t.get("max_rows",400000)),metric,variant_index)
-            except Exception as e:
-                print(f"skip {name}: {type(e).__name__}: {e!r}"); traceback.print_exc(); continue
-            eid=self.store.add(competition,r.model_name,r.cv_score,r.metric,r.higher_is_better,r.params,str(r.submission_path)); out.append((eid,r)); trained.append(r)
+            for seed in seeds:
+                run_name=name if len(seeds)==1 else f"{name}_seed{seed}"
+                try:
+                    r=train_model(competition,d/"data",d/"runs"/run_name,name,int(t["folds"]),seed,str(t.get("prediction_mode","auto")),int(t.get("max_rows",400000)),metric,variant_index)
+                    if len(seeds)>1:
+                        r.model_name=run_name
+                        r.params["seed"]=seed
+                except Exception as e:
+                    print(f"skip {run_name}: {type(e).__name__}: {e!r}"); traceback.print_exc(); continue
+                eid=self.store.add(competition,r.model_name,r.cv_score,r.metric,r.higher_is_better,r.params,str(r.submission_path)); out.append((eid,r)); trained.append(r)
         ens=build_ensemble(trained,d/"data",d/"runs"/"ensemble",int(t.get("ensemble_top_k",3)),str(t.get("prediction_mode","auto")),metric)
         if ens:
             eid=self.store.add(competition,ens.model_name,ens.cv_score,ens.metric,ens.higher_is_better,ens.params,str(ens.submission_path)); out.append((eid,ens))
