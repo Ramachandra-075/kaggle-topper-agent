@@ -235,17 +235,6 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
     combined = engineer_features(combined)
     X = combined.iloc[:len(X)].reset_index(drop=True)
     Xt = combined.iloc[len(X):].reset_index(drop=True)
-    # V11: fold-safe value statistics for the two synthetic high-cardinality
-    # columns that have shown repeatable signal in S6E9. Placeholders are added
-    # before model/preprocessor construction; each CV fold fills them using
-    # training-fold labels only, preventing target leakage.
-    v11_stat_cols=[]
-    if competition=="playground-series-s6e9":
-        for col in ("Annual_Income_USD","Daily_Commute_km"):
-            if col in X.columns:
-                for suffix in ("freq","te20"):
-                    name=f"{col}__{suffix}"
-                    X[name]=0.0; Xt[name]=0.0; v11_stat_cols.append((col,suffix,name))
     features = list(X.columns)
     nc=int(y.nunique()) if task=="classification" else 0; labels=np.unique(y.dropna()) if task=="classification" else None
     est,params=_model(model_name,task,random_state,variant_index,competition)
@@ -306,23 +295,7 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
             oof=np.zeros(len(train))
         preds=[]
         for tr,va in split_iter:
-            Xtr=X.iloc[tr].copy(); Xva=X.iloc[va].copy(); Xtest_fold=Xt.copy()
-            if v11_stat_cols and task=="classification" and nc==2:
-                y_num=(y.iloc[tr]==labels[1]).astype(float)
-                prior=float(y_num.mean()); ntr=float(len(tr))
-                for col,suffix,name in v11_stat_cols:
-                    keys=X.iloc[tr][col].reset_index(drop=True)
-                    if suffix=="freq":
-                        counts=keys.value_counts(dropna=False)
-                        Xtr[name]=Xtr[col].map(counts).fillna(0).astype(float)/ntr
-                        Xva[name]=Xva[col].map(counts).fillna(0).astype(float)/ntr
-                        Xtest_fold[name]=Xtest_fold[col].map(counts).fillna(0).astype(float)/ntr
-                    else:
-                        stats=pd.DataFrame({"key":keys,"target":y_num.reset_index(drop=True)}).groupby("key",dropna=False)["target"].agg(["sum","count"])
-                        enc=(stats["sum"]+20.0*prior)/(stats["count"]+20.0)
-                        Xtr[name]=Xtr[col].map(enc).fillna(prior).astype(float)
-                        Xva[name]=Xva[col].map(enc).fillna(prior).astype(float)
-                        Xtest_fold[name]=Xtest_fold[col].map(enc).fillna(prior).astype(float)
+            Xtr=X.iloc[tr]; Xva=X.iloc[va]; Xtest_fold=Xt
             pipe=Pipeline([("prep",clone(prep)),("model",clone(est))]); pipe.fit(Xtr,fit_y.iloc[tr])
             if task=="classification":
                 vp=pipe.predict_proba(Xva); tp2=pipe.predict_proba(Xtest_fold)
@@ -336,17 +309,7 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
         test_pred=np.mean(preds,axis=0)
         metric,higher,cv=_score(task,y,oof,nc,metric_override,labels)
         final=Pipeline([("prep",prep),("model",est)])
-        Xfinal=X.copy()
-        if v11_stat_cols and task=="classification" and nc==2:
-            y_num=(y==labels[1]).astype(float); prior=float(y_num.mean()); nfull=float(len(X))
-            for col,suffix,name in v11_stat_cols:
-                if suffix=="freq":
-                    counts=X[col].value_counts(dropna=False)
-                    Xfinal[name]=X[col].map(counts).fillna(0).astype(float)/nfull
-                else:
-                    stats=pd.DataFrame({"key":X[col].reset_index(drop=True),"target":y_num.reset_index(drop=True)}).groupby("key",dropna=False)["target"].agg(["sum","count"])
-                    enc=(stats["sum"]+20.0*prior)/(stats["count"]+20.0)
-                    Xfinal[name]=X[col].map(enc).fillna(prior).astype(float)
+        Xfinal=X
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             final.fit(Xfinal,fit_y)
