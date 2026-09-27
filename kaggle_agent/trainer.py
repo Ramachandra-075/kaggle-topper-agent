@@ -351,9 +351,10 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
         testp=np.clip(T @ weights,0,None)
         ensemble_weights={r.model_name:float(w) for r,w in zip(ranked,weights)}
     else:
-        # ROC-AUC blending: search a small deterministic simplex of OOF weights.
-        # Equal averaging is a good baseline, but the strongest classifiers are
-        # highly correlated and usually benefit from unequal weights.
+        # ROC-AUC is invariant to monotonic transforms, while LGBM/XGB can
+        # have different probability calibration. V7 evaluates both raw
+        # probability blending and percentile-rank blending on the same OOF
+        # predictions, then keeps whichever actually scores better.
         V=[np.asarray(r.validation_predictions) for r in ranked]
         T=[np.asarray(r.test_predictions) for r in ranked]
         if first.metric=="roc_auc" and nc==2 and len(ranked)<=3:
@@ -366,15 +367,27 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
                 for i in range(21):
                     for j in range(21-i):
                         candidates.append(np.array([i*step,j*step,1-(i+j)*step]))
-            best_auc=-np.inf; weights=None
-            for w in candidates:
-                blend=sum(float(wi)*vi for wi,vi in zip(w,V))
-                auc=float(roc_auc_score(y,blend))
-                if auc>best_auc:
-                    best_auc=auc; weights=w
-            val=sum(float(wi)*vi for wi,vi in zip(weights,V))
-            testp=sum(float(wi)*ti for wi,ti in zip(weights,T))
+
+            def _pct_rank(a):
+                return pd.Series(a).rank(method="average",pct=True).to_numpy()
+
+            best_auc=-np.inf; weights=None; blend_mode="raw"
+            best_val=None; best_test=None
+            for mode, VV, TT in (
+                ("raw", V, T),
+                ("rank", [_pct_rank(v) for v in V], [_pct_rank(t) for t in T]),
+            ):
+                for w in candidates:
+                    blend=sum(float(wi)*vi for wi,vi in zip(w,VV))
+                    auc=float(roc_auc_score(y,blend))
+                    if auc>best_auc:
+                        best_auc=auc; weights=w.copy(); blend_mode=mode
+                        best_val=blend
+                        best_test=sum(float(wi)*ti for wi,ti in zip(w,TT))
+            val=best_val
+            testp=best_test
             ensemble_weights={r.model_name:float(w) for r,w in zip(ranked,weights)}
+            ensemble_weights["blend_mode"]=blend_mode
         else:
             val=np.mean(V,axis=0)
             testp=np.mean(T,axis=0)
