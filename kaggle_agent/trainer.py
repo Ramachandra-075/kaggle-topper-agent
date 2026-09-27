@@ -176,6 +176,10 @@ def _model(name,task,seed,variant,competition=None):
             from lightgbm import LGBMClassifier,LGBMRegressor
         except ImportError as e: raise RuntimeError("lightgbm not installed") from e
         p=dict(n_estimators=[1200,1600,900,1800,1400][v],learning_rate=[.03,.022,.04,.018,.025][v],num_leaves=[31,63,15,47,39][v])
+        # V9 freezes the exact V7-winning S6E9 LightGBM configuration so the
+        # multi-seed experiment changes only the random seed.
+        if competition == "playground-series-s6e9":
+            p.update(n_estimators=1600,learning_rate=.022,num_leaves=63)
         # S6E9 income has high cardinality; default 255-bin quantization loses
         # useful ranking resolution. A larger max_bin is competition-specific.
         if competition == "playground-series-s6e9":
@@ -194,6 +198,9 @@ def _model(name,task,seed,variant,competition=None):
             from xgboost import XGBClassifier,XGBRegressor
         except ImportError as e: raise RuntimeError("xgboost not installed") from e
         p=dict(n_estimators=[1200,1500,900,1750,1350][v],learning_rate=[.03,.024,.04,.02,.026][v],max_depth=[6,8,4,7,5][v])
+        # Same isolation for XGBoost: V7 used variant 1.
+        if competition == "playground-series-s6e9":
+            p.update(n_estimators=1500,learning_rate=.024,max_depth=8)
         cls=XGBClassifier if task=="classification" else XGBRegressor
         return cls(**p,subsample=.9,colsample_bytree=.9,random_state=seed,n_jobs=-1),p
     raise ValueError(name)
