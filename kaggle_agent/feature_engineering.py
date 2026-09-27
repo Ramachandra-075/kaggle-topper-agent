@@ -183,6 +183,55 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         counts = out["__brand_model"].value_counts(dropna=False)
         out["__brand_model_freq"] = out["__brand_model"].map(counts).astype(float) / max(len(out), 1)
 
+    # Playground S6E9 EV-purchase features. Keep this gated by schema so
+    # competition-specific tricks never leak into unrelated datasets.
+    ev_cols = {col.lower(): col for col in out.columns}
+    is_ev_purchase = (
+        "subsidy_available" in ev_cols
+        and any(k in ev_cols for k in ("income", "annual_income"))
+        and any(k in ev_cols for k in ("range_anxiety_level", "range_anxiety"))
+    )
+    if is_ev_purchase:
+        # Digit decomposition is unusually effective on synthetic Playground
+        # Series tables because digit-position structure can survive generation.
+        # Skip low-cardinality/binary columns where decomposition is redundant.
+        numeric_cols = [
+            col for col in list(out.columns)
+            if pd.api.types.is_numeric_dtype(out[col])
+            and out[col].nunique(dropna=True) > 20
+            and not col.startswith("__")
+            and "__" not in col
+        ]
+        for col in numeric_cols:
+            values = pd.to_numeric(out[col], errors="coerce").abs()
+            rounded = np.floor(values.fillna(0)).astype("int64")
+            max_value = int(rounded.max()) if len(rounded) else 0
+            max_digits = min(7, max(1, len(str(max_value))))
+            for pos in range(max_digits):
+                out[f"{col}__digit_{pos}"] = ((rounded // (10 ** pos)) % 10).astype(float)
+            # Preserve a little decimal structure when the source is continuous.
+            frac = (values - np.floor(values)).fillna(0)
+            if float(frac.abs().max()) > 1e-9:
+                out[f"{col}__decimal_digit_1"] = np.floor(frac * 10).astype(float)
+                out[f"{col}__decimal_digit_2"] = np.floor(frac * 100).astype(float) % 10
+
+        subsidy = ev_cols["subsidy_available"]
+        income = next(ev_cols[k] for k in ("income", "annual_income") if k in ev_cols)
+        income_num = pd.to_numeric(out[income], errors="coerce")
+        subsidy_raw = out[subsidy]
+        if pd.api.types.is_numeric_dtype(subsidy_raw):
+            subsidy_num = pd.to_numeric(subsidy_raw, errors="coerce").fillna(0)
+        else:
+            subsidy_num = (
+                _clean_category(subsidy_raw)
+                .isin({"yes", "y", "true", "1", "available"})
+                .astype(float)
+            )
+        out["__ev_subsidy_x_income"] = subsidy_num * income_num
+        out["__ev_income_log1p"] = np.log1p(income_num.clip(lower=0))
+        # Quantile-like fixed-width rank proxy without target information.
+        out["__ev_income_10k_bin"] = np.floor(income_num / 10000.0)
+
     # Normalize posting-date information when present.
     for c in list(out.columns):
         lc = c.lower()
