@@ -1,16 +1,16 @@
 {
-  "best_cv": 0.9443076327892181,
+  "best_cv": 0.9447844862989361,
   "best_model": "ensemble_lightgbm_xgboost",
-  "cycle_index": 6,
+  "cycle_index": 7,
   "last_cycle": {
-    "best_cv": 0.9443076327892181,
+    "best_cv": 0.9447844862989361,
     "best_experiment_id": 3,
     "best_model": "ensemble_lightgbm_xgboost",
     "competition": "playground-series-s6e9",
-    "cycle_index": 5,
+    "cycle_index": 6,
     "experiments": [
       {
-        "cv_score": 0.9443076327892181,
+        "cv_score": 0.9447844862989361,
         "experiment_id": 3,
         "metric": "roc_auc",
         "model": "ensemble_lightgbm_xgboost",
@@ -20,29 +20,30 @@
             "xgboost"
           ],
           "weights": {
-            "lightgbm": 0.55,
-            "xgboost": 0.44999999999999996
+            "blend_mode": "rank",
+            "lightgbm": 0.7000000000000001,
+            "xgboost": 0.29999999999999993
           }
         },
         "submission_file": "workspace/playground-series-s6e9/runs/ensemble/submission.csv"
       },
       {
-        "cv_score": 0.9440095884775035,
+        "cv_score": 0.9445650139813444,
         "experiment_id": 1,
         "metric": "roc_auc",
         "model": "lightgbm",
         "params": {
           "interaction_constraints": "single_feature",
-          "learning_rate": 0.03,
+          "learning_rate": 0.022,
           "max_bin": 8191,
-          "n_estimators": 1200,
-          "num_leaves": 31,
-          "variant_index": 0
+          "n_estimators": 1600,
+          "num_leaves": 63,
+          "variant_index": 1
         },
         "submission_file": "workspace/playground-series-s6e9/runs/lightgbm/submission.csv"
       },
       {
-        "cv_score": 0.9439053713714817,
+        "cv_score": 0.94352643782711,
         "experiment_id": 2,
         "metric": "roc_auc",
         "model": "xgboost",
@@ -51,20 +52,20 @@
             "No",
             "Yes"
           ],
-          "learning_rate": 0.03,
-          "max_depth": 6,
-          "n_estimators": 1200,
-          "variant_index": 0
+          "learning_rate": 0.024,
+          "max_depth": 8,
+          "n_estimators": 1500,
+          "variant_index": 1
         },
         "submission_file": "workspace/playground-series-s6e9/runs/xgboost/submission.csv"
       }
     ],
     "improved": true,
     "metric": "roc_auc",
-    "previous_best_cv": 0.9440270739585145,
+    "previous_best_cv": 0.9443076327892181,
     "public_score": null,
     "submitted": false
   },
   "metric": "roc_auc",
-  "updated_at": "2026-09-27T05:57:51.976444+00:00"
+  "updated_at": "2026-09-27T06:16:30.802660+00:00"
 }
