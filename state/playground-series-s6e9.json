@@ -1,16 +1,16 @@
 {
   "best_cv": 0.9447844862989361,
   "best_model": "ensemble_lightgbm_xgboost",
-  "cycle_index": 16,
+  "cycle_index": 17,
   "last_cycle": {
-    "best_cv": 0.9447299786632202,
+    "best_cv": 0.9447317190708368,
     "best_experiment_id": 5,
     "best_model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed137_xgboost_seed42",
     "competition": "playground-series-s6e9",
-    "cycle_index": 15,
+    "cycle_index": 16,
     "experiments": [
       {
-        "cv_score": 0.9447299786632202,
+        "cv_score": 0.9447317190708368,
         "experiment_id": 5,
         "metric": "roc_auc",
         "model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed137_xgboost_seed42",
@@ -23,8 +23,8 @@
           ],
           "weights": {
             "blend_mode": "rank",
-            "lightgbm_seed137": 0.35,
-            "lightgbm_seed42": 0.4,
+            "lightgbm_seed137": 0.3,
+            "lightgbm_seed42": 0.45,
             "xgboost_seed137": 0.15,
             "xgboost_seed42": 0.1
           }
@@ -32,7 +32,7 @@
         "submission_file": "workspace/playground-series-s6e9/runs/ensemble/submission.csv"
       },
       {
-        "cv_score": 0.9444721708138917,
+        "cv_score": 0.9444792993057658,
         "experiment_id": 1,
         "metric": "roc_auc",
         "model": "lightgbm_seed42",
@@ -43,12 +43,12 @@
           "n_estimators": 1600,
           "num_leaves": 63,
           "seed": 42,
-          "variant_index": 0
+          "variant_index": 1
         },
         "submission_file": "workspace/playground-series-s6e9/runs/lightgbm_seed42/submission.csv"
       },
       {
-        "cv_score": 0.9444555505394737,
+        "cv_score": 0.9444514272752368,
         "experiment_id": 2,
         "metric": "roc_auc",
         "model": "lightgbm_seed137",
@@ -59,7 +59,7 @@
           "n_estimators": 1600,
           "num_leaves": 63,
           "seed": 137,
-          "variant_index": 0
+          "variant_index": 1
         },
         "submission_file": "workspace/playground-series-s6e9/runs/lightgbm_seed137/submission.csv"
       },
@@ -84,7 +84,7 @@
           "reg_lambda": 2.0,
           "seed": 137,
           "tree_method": "hist",
-          "variant_index": 0
+          "variant_index": 1
         },
         "submission_file": "workspace/playground-series-s6e9/runs/xgboost_seed137/submission.csv"
       },
@@ -109,7 +109,7 @@
           "reg_lambda": 2.0,
           "seed": 42,
           "tree_method": "hist",
-          "variant_index": 0
+          "variant_index": 1
         },
         "submission_file": "workspace/playground-series-s6e9/runs/xgboost_seed42/submission.csv"
       }
@@ -121,5 +121,5 @@
     "submitted": false
   },
   "metric": "roc_auc",
-  "updated_at": "2026-09-28T06:59:11.068315+00:00"
+  "updated_at": "2026-09-28T15:38:51.543197+00:00"
 }
