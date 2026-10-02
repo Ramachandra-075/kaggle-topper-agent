@@ -4,21 +4,10 @@
     "deadline": "2026-11-12T23:59:00.807000",
     "category": "Featured",
     "reward": "35,000 Usd",
-    "teams": 84,
+    "teams": 92,
     "entered": false,
     "user_rank": 0,
-    "days_left": 42.62,
-    "score": 0.485579
-  },
-  {
-    "ref": "https://www.kaggle.com/competitions/playground-series-s6e10",
-    "deadline": "2026-10-31T23:59:00",
-    "category": "Playground",
-    "reward": "Swag",
-    "teams": 102,
-    "entered": false,
-    "user_rank": 0,
-    "days_left": 30.62,
-    "score": 0.414646
+    "days_left": 41.64,
+    "score": 0.445836
   }
 ]
