@@ -2,4 +2,4 @@
 
 |Rank|Teams|Days|Entered|Competition|
 |---:|---:|---:|:---:|---|
-|1|126|38.6|no|\`https://www.kaggle.com/competitions/gemma-4-developer-agent-paper\`|
+|1|137|37.6|no|\`https://www.kaggle.com/competitions/gemma-4-developer-agent-paper\`|
