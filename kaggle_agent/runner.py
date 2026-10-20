@@ -133,7 +133,7 @@ class AgentRunner:
             metric_is_target = best.metric == "roc_auc"
             reached = metric_is_target and best.higher_is_better and float(best.cv_score) >= float(target_score)
 
-            if improved:
+            if improved or not best_csv.is_file():
                 shutil.copy2(best.submission_path, best_csv)
                 source_report = best.submission_path.parent / "validation_report.json"
                 if source_report.is_file():
@@ -205,7 +205,8 @@ class AgentRunner:
                 "target_score": float(target_score),
                 "submitted": False
             }
-        latest["status"] = "target_not_reached_runner_budget_exhausted" if not state.get("research_target_reached", False) else latest["status"]
+        if latest.get("status") != "no_successful_experiments" and not state.get("research_target_reached", False):
+            latest["status"] = "target_not_reached_runner_budget_exhausted"
         latest["iterations_this_run"] = iterations
         latest["submitted"] = False
         state = load_state(state_path)
