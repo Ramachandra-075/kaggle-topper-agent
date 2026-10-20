@@ -1,0 +1,13 @@
+{
+  "competition": "playground-series-s6e9",
+  "experiment_id": 5,
+  "model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed137_xgboost_seed42",
+  "metric": "roc_auc",
+  "cv_score": 0.9447313227866309,
+  "target_metric": "roc_auc",
+  "target_score": 0.9,
+  "target_reached": true,
+  "submission_file": "reports/playground-series-s6e9/best_submission.csv",
+  "submitted": false,
+  "note": "CV ROC-AUC is a local out-of-fold estimate, not a guaranteed Kaggle leaderboard score. No submission was made."
+}

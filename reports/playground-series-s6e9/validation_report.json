@@ -1,0 +1,52 @@
+{
+  "competition": "playground-series-s6e9",
+  "model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed137_xgboost_seed42",
+  "task": "classification",
+  "metric": "roc_auc",
+  "cv_score": 0.9447313227866309,
+  "higher_is_better": true,
+  "validation_rows": 668665,
+  "confusion_matrix": [
+    [
+      335385,
+      216501
+    ],
+    [
+      1447,
+      115332
+    ]
+  ],
+  "confusion_matrix_labels": [
+    "No",
+    "Yes"
+  ],
+  "classification_report": {
+    "No": {
+      "precision": 0.9957040898726962,
+      "recall": 0.6077070264511149,
+      "f1-score": 0.7547613528700893,
+      "support": 551886.0
+    },
+    "Yes": {
+      "precision": 0.3475603692218676,
+      "recall": 0.9876090735491826,
+      "f1-score": 0.5141726034970086,
+      "support": 116779.0
+    },
+    "accuracy": 0.6740550200773182,
+    "macro avg": {
+      "precision": 0.6716322295472819,
+      "recall": 0.7976580500001487,
+      "f1-score": 0.6344669781835489,
+      "support": 668665.0
+    },
+    "weighted avg": {
+      "precision": 0.8825090287376238,
+      "recall": 0.6740550200773181,
+      "f1-score": 0.7127437303490376,
+      "support": 668665.0
+    }
+  },
+  "threshold": 0.5,
+  "note": "Out-of-fold training validation only; not the Kaggle public leaderboard score."
+}

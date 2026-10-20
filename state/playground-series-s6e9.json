@@ -121,5 +121,22 @@
     "submitted": false
   },
   "metric": "roc_auc",
-  "updated_at": "2026-10-19T23:57:02.411180+00:00"
+  "research_best_cv": 0.9447313227866309,
+  "research_best_metric": "roc_auc",
+  "research_best_model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed137_xgboost_seed42",
+  "research_cycle_index": 1,
+  "research_last_cycle": {
+    "best_cv": 0.9447313227866309,
+    "best_model": "ensemble_lightgbm_seed42_lightgbm_seed137_xgboost_seed137_xgboost_seed42",
+    "best_submission": "reports/playground-series-s6e9/best_submission.csv",
+    "competition": "playground-series-s6e9",
+    "confusion_matrix_report": "reports/playground-series-s6e9/validation_report.json",
+    "status": "target_reached_ready_for_review",
+    "submitted": false,
+    "target_metric": "roc_auc",
+    "target_score": 0.9
+  },
+  "research_status": "target_reached_ready_for_review",
+  "research_target_reached": true,
+  "updated_at": "2026-10-20T06:28:12.327917+00:00"
 }
