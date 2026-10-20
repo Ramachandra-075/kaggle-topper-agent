@@ -17,6 +17,8 @@ def train(a):
     for eid,r in AgentRunner(load_config(a.config)).run_suite(a.competition): print(f"exp={eid} model={r.model_name} {r.metric}={r.cv_score:.6f}")
 def auto(a):
     print(json.dumps(AgentRunner(load_config(a.config)).auto_cycle(a.competition),indent=2))
+def research(a):
+    print(json.dumps(AgentRunner(load_config(a.config)).research_loop(a.competition,a.target_score,a.max_hours),indent=2))
 def monitor(a):
     c=KaggleClient(); print("=== SUBMISSIONS ==="); print(c.submissions(a.competition)); print("=== LEADERBOARD ==="); print(c.leaderboard(a.competition))
 
@@ -27,5 +29,8 @@ def main():
     x=s.add_parser("scout"); x.add_argument("--limit",type=int,default=20); x.add_argument("--out",default="reports/scout.md"); x.add_argument("--json-out",default="reports/scout.json"); x.set_defaults(func=scout)
     for name,func in [("prepare",prepare),("train",train),("auto",auto),("monitor",monitor)]:
         x=s.add_parser(name); x.add_argument("competition"); x.set_defaults(func=func)
+    x=s.add_parser("research",help="Run continuous research cycles without submitting to Kaggle")
+    x.add_argument("competition"); x.add_argument("--target-score",type=float,default=0.90)
+    x.add_argument("--max-hours",type=float,default=5.0); x.set_defaults(func=research)
     a=p.parse_args(); a.func(a)
 if __name__=="__main__": main()
