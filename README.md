@@ -57,4 +57,7 @@ kaggle-agent monitor <competition-slug>
 ## Current scope
 
 The generic engine targets normal tabular CSV competitions. Image, NLP, code competitions, unusual metrics, grouped/time-aware validation, and multi-target competitions need competition-specific adapters.
-\n## Validation vs leaderboard score\n\nThe confusion matrix is calculated from out-of-fold predictions on labeled training data at a 0.5 threshold for binary classification (argmax for multiclass). It is a diagnostic, not the Kaggle leaderboard score. The `0.90` research target refers to cross-validation ROC-AUC for the EV binary-classification setup. Test/sample-submission CSV files do not contain ground-truth test labels, so they cannot produce a genuine confusion matrix or verify public leaderboard performance without submitting or obtaining labeled outcomes. Research workflows do not submit to Kaggle.\n
+
+## Validation vs leaderboard score
+
+The confusion matrix is calculated from out-of-fold predictions on labeled training data at a 0.5 threshold for binary classification (argmax for multiclass). It is a diagnostic, not the Kaggle leaderboard score. The `0.90` research target refers to cross-validation ROC-AUC for the EV binary-classification setup. Test/sample-submission CSV files do not contain ground-truth test labels, so they cannot produce a genuine confusion matrix or verify public leaderboard performance without submitting or obtaining labeled outcomes. Research workflows do not submit to Kaggle.
