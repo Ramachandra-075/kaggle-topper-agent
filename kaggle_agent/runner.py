@@ -7,6 +7,8 @@ from .rules import inspect_rules
 from .state import load_state, save_state
 from .store import ExperimentStore
 from .trainer import train_model, build_ensemble
+from .submission_guard import validate_submission
+import pandas as pd
 
 class AgentRunner:
     def __init__(self,cfg):
@@ -107,7 +109,52 @@ class AgentRunner:
             ],
         }
         if improved and self._enabled() and self._approved(competition):
-            text=self.client.submit(competition,best.submission_path,f"kaggle-topper-agent exp={eid} model={best.model_name} cv={best.cv_score:.6f}",int(self.cfg["safety"].get("submission_wait_seconds",1200)))
-            score=self.client.extract_public_score(text); ref=self.client.extract_submission_ref(text); self.store.update_submission(eid,score,ref); result.update(submitted=True,public_score=score,submission_ref=ref)
+            # Fail closed: submission is blocked unless metadata and CSV checks pass.
+            data_dir = d / "data"
+            table_files = sorted([*data_dir.rglob("*.csv")])
+            sample_files = [p for p in table_files if any(k in p.stem.lower() for k in ("sample_submission", "sample-submission"))]
+            test_files = [p for p in table_files if "test" in p.stem.lower() and "contest" not in p.stem.lower()]
+            rule_report = {}
+            try:
+                rule_report = json.loads((d / "rule_report.json").read_text(encoding="utf-8"))
+            except Exception:
+                pass
+            deadline = None
+            try:
+                for category in self.cfg["competition"].get("categories", ["all"]):
+                    for row in self.client.list_competitions(category, 100):
+                        ref = str(row.get("ref") or row.get("Ref") or "")
+                        if ref == competition:
+                            deadline = row.get("deadline") or row.get("Deadline")
+                            break
+                    if deadline:
+                        break
+            except Exception as exc:
+                print(f"Submission blocked: could not verify competition deadline ({type(exc).__name__}).")
+            if not sample_files or not test_files:
+                print("Submission blocked: unable to identify test and sample-submission CSV files.")
+            else:
+                try:
+                    sample = pd.read_csv(sample_files[0], nrows=0)
+                    test = pd.read_csv(test_files[0])
+                    check = validate_submission(
+                        best.submission_path,
+                        expected_rows=len(test),
+                        expected_columns=list(sample.columns),
+                        deadline=str(deadline) if deadline else None,
+                        rules_fetched=bool(rule_report.get("fetched")),
+                        metric=best.metric if rule_report.get("metric") == best.metric else None,
+                        approved=self._approved(competition),
+                        enabled=self._enabled(),
+                    )
+                    result["submission_preflight"] = check.to_dict()
+                    if check.ok:
+                        text=self.client.submit(competition,best.submission_path,f"kaggle-topper-agent exp={eid} model={best.model_name} cv={best.cv_score:.6f}",int(self.cfg["safety"].get("submission_wait_seconds",1200)))
+                        score=self.client.extract_public_score(text); ref=self.client.extract_submission_ref(text); self.store.update_submission(eid,score,ref); result.update(submitted=True,public_score=score,submission_ref=ref)
+                    else:
+                        print("Submission blocked by preflight: " + "; ".join(check.errors))
+                except Exception as exc:
+                    result["submission_preflight"] = {"ok": False, "errors": [f"Preflight failed closed: {type(exc).__name__}"], "warnings": []}
+                    print(f"Submission blocked: preflight failed ({type(exc).__name__}).")
         if prev is None or improved: state.update(best_cv=best.cv_score,best_model=best.model_name,metric=best.metric)
         state["cycle_index"]=cycle+1; state["last_cycle"]=result; save_state(state_path,state); return result
