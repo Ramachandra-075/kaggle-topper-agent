@@ -113,9 +113,11 @@ class AgentRunner:
             iterations += 1
             if not results:
                 state["research_cycle_index"] = cycle + 1
-                state["research_last_error"] = "No successful experiments in this cycle."
+                state["research_last_error"] = "No successful experiments in this cycle; stopping this runner to avoid a busy loop."
+                state["research_status"] = "no_successful_experiments"
                 save_state(state_path, state)
-                continue
+                latest = {"competition": competition, "status": "no_successful_experiments", "submitted": False}
+                break
 
             best_id, best = sorted(
                 results,
