@@ -7,7 +7,7 @@ from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor, HistGradientBoostingClassifier, HistGradientBoostingRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import accuracy_score, f1_score, log_loss, mean_absolute_error, mean_squared_error, mean_squared_log_error, r2_score, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score, log_loss, mean_absolute_error, mean_squared_error, mean_squared_log_error, r2_score, roc_auc_score
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
@@ -328,6 +328,40 @@ def train_model(competition,data_dir,out_dir,model_name,folds=5,random_state=42,
             warnings.simplefilter("ignore")
             final.fit(Xfinal,fit_y)
         model_path=out/"model.joblib"; joblib.dump(final,model_path)
+    # Save out-of-fold validation diagnostics. These are computed only on
+    # held-out training folds; the Kaggle test CSV has no ground-truth labels,
+    # so it cannot be used to calculate a genuine confusion matrix or leaderboard score.
+    validation_report = {
+        "competition": competition,
+        "model": model_name,
+        "task": task,
+        "metric": metric,
+        "cv_score": float(cv),
+        "higher_is_better": bool(higher),
+        "validation_rows": int(len(y)),
+        "confusion_matrix": None,
+        "confusion_matrix_labels": [],
+        "classification_report": None,
+        "threshold": None,
+        "note": "Out-of-fold training validation only; not the Kaggle public leaderboard score."
+    }
+    if task == "classification":
+        if nc == 2:
+            threshold = 0.5
+            predicted_labels = np.where(np.asarray(oof) >= threshold, labels[1], labels[0])
+            validation_report["threshold"] = threshold
+        else:
+            predicted_labels = labels[np.asarray(oof).argmax(axis=1)]
+        cm = confusion_matrix(y, predicted_labels, labels=labels)
+        validation_report["confusion_matrix"] = cm.tolist()
+        validation_report["confusion_matrix_labels"] = [str(v) for v in labels]
+        validation_report["classification_report"] = classification_report(
+            y, predicted_labels, labels=labels, output_dict=True, zero_division=0
+        )
+    (out / "validation_report.json").write_text(
+        __import__("json").dumps(validation_report, indent=2, default=float),
+        encoding="utf-8",
+    )
     targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
     if len(targets)==1:
         col=targets[0]
@@ -426,7 +460,37 @@ def build_ensemble(results,data_dir,out_dir,top_k=3,prediction_mode="auto",metri
             ensemble_weights={r.model_name:1.0/len(ranked) for r in ranked}
 
     metric,higher,cv=_score(first.task,y,val,nc,metric_override,labels)
-    out=Path(out_dir); out.mkdir(parents=True,exist_ok=True); targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
+    validation_report = {
+        "competition": first.competition,
+        "model": "ensemble_" + "_".join(r.model_name for r in ranked),
+        "task": first.task,
+        "metric": metric,
+        "cv_score": float(cv),
+        "higher_is_better": bool(higher),
+        "validation_rows": int(len(y)),
+        "confusion_matrix": None,
+        "confusion_matrix_labels": [],
+        "classification_report": None,
+        "threshold": None,
+        "note": "Out-of-fold training validation only; not the Kaggle public leaderboard score."
+    }
+    if first.task == "classification":
+        if nc == 2:
+            threshold = 0.5
+            predicted_labels = np.where(np.asarray(val) >= threshold, labels[1], labels[0])
+            validation_report["threshold"] = threshold
+        else:
+            predicted_labels = labels[np.asarray(val).argmax(axis=1)]
+        validation_report["confusion_matrix"] = confusion_matrix(y, predicted_labels, labels=labels).tolist()
+        validation_report["confusion_matrix_labels"] = [str(v) for v in labels]
+        validation_report["classification_report"] = classification_report(
+            y, predicted_labels, labels=labels, output_dict=True, zero_division=0
+        )
+    out=Path(out_dir); out.mkdir(parents=True,exist_ok=True)
+    (out / "validation_report.json").write_text(
+        __import__("json").dumps(validation_report, indent=2, default=float), encoding="utf-8"
+    )
+    targets=[c for c in sample.columns if c not in test.columns] or [sample.columns[-1]]
     if len(targets)==1:
         if first.task=="classification" and nc==2: sample[targets[0]]=testp
         else: sample[targets[0]]=testp

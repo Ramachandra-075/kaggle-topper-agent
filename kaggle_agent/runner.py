@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os, traceback
+import json, os, traceback, time, shutil
 from pathlib import Path
 from .discovery import rank_candidates
 from .kaggle_client import KaggleClient
@@ -7,6 +7,8 @@ from .rules import inspect_rules
 from .state import load_state, save_state
 from .store import ExperimentStore
 from .trainer import train_model, build_ensemble
+from .submission_guard import validate_submission
+import pandas as pd
 
 class AgentRunner:
     def __init__(self,cfg):
@@ -72,6 +74,146 @@ class AgentRunner:
     def _approved(self,competition):
         approved=set(self.cfg["safety"].get("approved_competitions",[])); approved.update(x.strip() for x in os.getenv("KAGGLE_APPROVED_COMPETITIONS","").split(",") if x.strip()); return competition in approved
     def _enabled(self): return os.getenv("KAGGLE_ALLOW_AUTO_SUBMIT",str(self.cfg["safety"].get("allow_auto_submit",False))).lower() in {"1","true","yes","on"}
+
+    def research_loop(self, competition, target_score=0.90, max_hours=5.0):
+        """Run research-only cycles until target CV ROC-AUC or the runner budget expires.
+
+        This method never submits to Kaggle. It persists the best CSV and OOF
+        diagnostics so scheduled GitHub Actions runs can resume from the last best.
+        """
+        d = self.workspace / competition
+        state_path = self.state_dir / f"{competition}.json"
+        state = load_state(state_path)
+        report_dir = self.report_dir / competition
+        report_dir.mkdir(parents=True, exist_ok=True)
+        best_csv = report_dir / "best_submission.csv"
+        best_meta = report_dir / "best_model.json"
+        target_reached = bool(state.get("research_target_reached", False))
+        previous_best = state.get("research_best_cv")
+        if target_reached and best_csv.is_file() and best_meta.is_file():
+            return {
+                "competition": competition,
+                "status": "target_already_reached",
+                "target_score": target_score,
+                "best_cv": previous_best,
+                "best_submission": str(best_csv),
+                "submitted": False,
+                "message": "Research target was reached previously; preserved candidate CSV. No Kaggle submission was made."
+            }
+
+        if not (d / "data").exists():
+            self.prepare(competition)
+        deadline = time.monotonic() + max(0.1, float(max_hours)) * 3600
+        iterations = 0
+        latest = None
+        while time.monotonic() < deadline:
+            state = load_state(state_path)
+            cycle = int(state.get("research_cycle_index", 0))
+            results = self.run_suite(competition, cycle % 5)
+            iterations += 1
+            if not results:
+                state["research_cycle_index"] = cycle + 1
+                state["research_last_error"] = "No successful experiments in this cycle; stopping this runner to avoid a busy loop."
+                state["research_status"] = "no_successful_experiments"
+                save_state(state_path, state)
+                latest = {"competition": competition, "status": "no_successful_experiments", "submitted": False}
+                break
+
+            best_id, best = sorted(
+                results,
+                key=lambda item: item[1].cv_score,
+                reverse=results[0][1].higher_is_better,
+            )[0]
+            current_best = state.get("research_best_cv")
+            improved = current_best is None or (
+                best.cv_score > float(current_best)
+                if best.higher_is_better
+                else best.cv_score < float(current_best)
+            )
+            metric_is_target = best.metric == "roc_auc"
+            reached = metric_is_target and best.higher_is_better and float(best.cv_score) >= float(target_score)
+
+            if improved or not best_csv.is_file():
+                shutil.copy2(best.submission_path, best_csv)
+                source_report = best.submission_path.parent / "validation_report.json"
+                if source_report.is_file():
+                    shutil.copy2(source_report, report_dir / "validation_report.json")
+                meta = {
+                    "competition": competition,
+                    "experiment_id": best_id,
+                    "model": best.model_name,
+                    "metric": best.metric,
+                    "cv_score": float(best.cv_score),
+                    "target_metric": "roc_auc",
+                    "target_score": float(target_score),
+                    "target_reached": bool(reached),
+                    "submission_file": str(best_csv),
+                    "submitted": False,
+                    "note": "CV ROC-AUC is a local out-of-fold estimate, not a guaranteed Kaggle leaderboard score. No submission was made."
+                }
+                best_meta.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+                state["research_best_cv"] = float(best.cv_score)
+                state["research_best_model"] = best.model_name
+                state["research_best_metric"] = best.metric
+
+            if reached:
+                state["research_target_reached"] = True
+                state["research_status"] = "target_reached_ready_for_review"
+                # Mark metadata as target reached even if the best result was
+                # already stored from an earlier iteration.
+                if best_meta.is_file():
+                    meta = json.loads(best_meta.read_text(encoding="utf-8"))
+                    meta["target_reached"] = True
+                    best_meta.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+                latest = {
+                    "competition": competition,
+                    "status": "target_reached_ready_for_review",
+                    "target_metric": "roc_auc",
+                    "target_score": float(target_score),
+                    "best_cv": float(best.cv_score),
+                    "best_model": best.model_name,
+                    "best_submission": str(best_csv),
+                    "confusion_matrix_report": str(report_dir / "validation_report.json"),
+                    "submitted": False
+                }
+                state["research_last_cycle"] = latest
+                state["research_cycle_index"] = cycle + 1
+                save_state(state_path, state)
+                return latest
+
+            state["research_status"] = "researching"
+            state["research_target_reached"] = False
+            state["research_cycle_index"] = cycle + 1
+            latest = {
+                "competition": competition,
+                "status": "researching",
+                "target_metric": "roc_auc",
+                "target_score": float(target_score),
+                "best_cv": state.get("research_best_cv"),
+                "best_model": state.get("research_best_model"),
+                "iterations_this_run": iterations,
+                "best_submission": str(best_csv) if best_csv.is_file() else None,
+                "confusion_matrix_report": str(report_dir / "validation_report.json") if (report_dir / "validation_report.json").is_file() else None,
+                "submitted": False
+            }
+            state["research_last_cycle"] = latest
+            save_state(state_path, state)
+        if latest is None:
+            latest = {
+                "competition": competition,
+                "status": "no_successful_experiments",
+                "target_score": float(target_score),
+                "submitted": False
+            }
+        if latest.get("status") != "no_successful_experiments" and not state.get("research_target_reached", False):
+            latest["status"] = "target_not_reached_runner_budget_exhausted"
+        latest["iterations_this_run"] = iterations
+        latest["submitted"] = False
+        state = load_state(state_path)
+        state["research_last_cycle"] = latest
+        save_state(state_path, state)
+        return latest
+
     def auto_cycle(self,competition):
         d=self.workspace/competition; state_path=self.state_dir/f"{competition}.json"; state=load_state(state_path)
         if not (d/"data").exists(): self.prepare(competition)
@@ -107,7 +249,52 @@ class AgentRunner:
             ],
         }
         if improved and self._enabled() and self._approved(competition):
-            text=self.client.submit(competition,best.submission_path,f"kaggle-topper-agent exp={eid} model={best.model_name} cv={best.cv_score:.6f}",int(self.cfg["safety"].get("submission_wait_seconds",1200)))
-            score=self.client.extract_public_score(text); ref=self.client.extract_submission_ref(text); self.store.update_submission(eid,score,ref); result.update(submitted=True,public_score=score,submission_ref=ref)
+            # Fail closed: submission is blocked unless metadata and CSV checks pass.
+            data_dir = d / "data"
+            table_files = sorted([*data_dir.rglob("*.csv")])
+            sample_files = [p for p in table_files if any(k in p.stem.lower() for k in ("sample_submission", "sample-submission"))]
+            test_files = [p for p in table_files if "test" in p.stem.lower() and "contest" not in p.stem.lower()]
+            rule_report = {}
+            try:
+                rule_report = json.loads((d / "rule_report.json").read_text(encoding="utf-8"))
+            except Exception:
+                pass
+            deadline = None
+            try:
+                for category in self.cfg["competition"].get("categories", ["all"]):
+                    for row in self.client.list_competitions(category, 100):
+                        ref = str(row.get("ref") or row.get("Ref") or "")
+                        if ref == competition:
+                            deadline = row.get("deadline") or row.get("Deadline")
+                            break
+                    if deadline:
+                        break
+            except Exception as exc:
+                print(f"Submission blocked: could not verify competition deadline ({type(exc).__name__}).")
+            if not sample_files or not test_files:
+                print("Submission blocked: unable to identify test and sample-submission CSV files.")
+            else:
+                try:
+                    sample = pd.read_csv(sample_files[0], nrows=0)
+                    test = pd.read_csv(test_files[0])
+                    check = validate_submission(
+                        best.submission_path,
+                        expected_rows=len(test),
+                        expected_columns=list(sample.columns),
+                        deadline=str(deadline) if deadline else None,
+                        rules_fetched=bool(rule_report.get("fetched")),
+                        metric=best.metric if rule_report.get("metric") == best.metric else None,
+                        approved=self._approved(competition),
+                        enabled=self._enabled(),
+                    )
+                    result["submission_preflight"] = check.to_dict()
+                    if check.ok:
+                        text=self.client.submit(competition,best.submission_path,f"kaggle-topper-agent exp={eid} model={best.model_name} cv={best.cv_score:.6f}",int(self.cfg["safety"].get("submission_wait_seconds",1200)))
+                        score=self.client.extract_public_score(text); ref=self.client.extract_submission_ref(text); self.store.update_submission(eid,score,ref); result.update(submitted=True,public_score=score,submission_ref=ref)
+                    else:
+                        print("Submission blocked by preflight: " + "; ".join(check.errors))
+                except Exception as exc:
+                    result["submission_preflight"] = {"ok": False, "errors": [f"Preflight failed closed: {type(exc).__name__}"], "warnings": []}
+                    print(f"Submission blocked: preflight failed ({type(exc).__name__}).")
         if prev is None or improved: state.update(best_cv=best.cv_score,best_model=best.model_name,metric=best.metric)
         state["cycle_index"]=cycle+1; state["last_cycle"]=result; save_state(state_path,state); return result
