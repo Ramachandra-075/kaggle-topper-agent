@@ -1,4 +1,4 @@
-name: Kaggle EV Purchase 24x7 Autonomous Cycle
+name: Kaggle EV Purchase Continuous Research (No Submissions)
 
 on:
   workflow_dispatch:
@@ -39,8 +39,8 @@ jobs:
       - name: Verify Kaggle access
         run: kaggle-agent doctor
 
-      - name: Run autonomous EV experiment cycle
-        run: kaggle-agent auto "playground-series-s6e9"
+      - name: Research until target or runner time budget
+        run: kaggle-agent research "playground-series-s6e9" --target-score 0.90 --max-hours 5.0
 
       - name: Persist EV learning state safely
         if: success()
@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
           git config user.name "kaggle-topper-agent[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add state/playground-series-s6e9.json
+          git add state/playground-series-s6e9.json reports/playground-series-s6e9/
           if git diff --cached --quiet; then
             echo "No state changes to persist."
             exit 0
@@ -81,11 +81,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kaggle-agent-playground-series-s6e9-${{ github.run_id }}
+          name: kaggle-research-playground-series-s6e9-${{ github.run_id }}
           path: |
             workspace/playground-series-s6e9/rule_report.json
             workspace/playground-series-s6e9/runs/**/submission.csv
+            workspace/playground-series-s6e9/runs/**/validation_report.json
             workspace/playground-series-s6e9/runs/**/ensemble.json
-            reports/**
+            reports/playground-series-s6e9/**
           if-no-files-found: ignore
           retention-days: 14
